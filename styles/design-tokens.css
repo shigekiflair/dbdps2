@@ -1,0 +1,62 @@
+/* Trial Forge - Design Tokens */
+/* フォント: Cinzel(見出し) / Inter(本文) / IBM Plex Mono(数値) を別途 next/font で読み込む前提 */
+
+:root,
+[data-theme="dark"] {
+  /* ベースカラー */
+  --tf-void: #0A0A0C;      /* ページ背景 */
+  --tf-ash: #151517;       /* カード面 */
+  --tf-ash-2: #1E1E20;     /* ホバー・区切り */
+  --tf-bone: #F1EFE8;      /* 本文テキスト */
+  --tf-bone-muted: #888780;/* サブテキスト */
+  --tf-border: #2C2C2A;
+
+  /* アクセント */
+  --tf-blood: #C4342F;     /* キラー/警告/主アクセント */
+  --tf-blood-dark: #4A1B0C;
+  --tf-fog-teal: #2B7A68;  /* サバイバー/データ系 */
+  --tf-fog-teal-dark: #04342C;
+  --tf-amber: #BA7517;     /* レア/ハイライト */
+
+  /* 役割マッピング */
+  --tf-bg: var(--tf-void);
+  --tf-surface: var(--tf-ash);
+  --tf-text-primary: var(--tf-bone);
+  --tf-text-secondary: var(--tf-bone-muted);
+  --tf-accent-primary: var(--tf-blood);
+  --tf-accent-secondary: var(--tf-fog-teal);
+
+  --tf-font-display: 'Cinzel', Georgia, serif;
+  --tf-font-body: 'Inter', -apple-system, sans-serif;
+  --tf-font-mono: 'IBM Plex Mono', monospace;
+}
+
+[data-theme="light"] {
+  --tf-bg: #F4F2EC;
+  --tf-surface: #FFFFFF;
+  --tf-text-primary: #1C1B19;
+  --tf-text-secondary: #5F5E5A;
+  --tf-border: #DEDBD2;
+
+  /* アクセントは共通ブランドカラーを維持（明所用に少し濃く） */
+  --tf-accent-primary: #A32D2D;
+  --tf-accent-secondary: #1F5C4E;
+  --tf-amber: #8A5A0F;
+}
+
+/*
+  オーバーレイテーマ（OBSブラウザソース向け）
+  背景は完全透過。カード等の要素は背景ブラー+濃いめの縁取りで
+  どんなゲーム画面の上でも視認性を確保する。
+*/
+[data-theme="overlay"] {
+  --tf-bg: transparent;
+  --tf-surface: rgba(10, 10, 12, 0.72);
+  --tf-text-primary: #FFFFFF;
+  --tf-text-secondary: #D9D7CE;
+  --tf-border: rgba(255, 255, 255, 0.16);
+  --tf-accent-primary: #FF4A44;
+  --tf-accent-secondary: #35C7A8;
+
+  /* オーバーレイ用は視認性優先でフォントもやや大きめ・太めに運用側で調整 */
+}

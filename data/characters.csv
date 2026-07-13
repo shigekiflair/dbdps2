@@ -1,0 +1,97 @@
+slug,name,role,chapter,icon_url
+the-trapper,トラッパー,killer,Dead by Daylight,killers/the-trapper.png
+the-wraith,レイス,killer,Dead by Daylight,killers/the-wraith.png
+the-hillbilly,ヒルビリー,killer,Dead by Daylight,killers/the-hillbilly.png
+the-nurse,ナース,killer,The Last Breath,killers/the-nurse.png
+the-shape,シェイプ,killer,Halloween,killers/the-shape.png
+the-hag,ハグ,killer,Of Flesh and Mud,killers/the-hag.png
+the-doctor,ドクター,killer,Spark of Madness,killers/the-doctor.png
+the-huntress,ハントレス,killer,A Lullaby for the Dark,killers/the-huntress.png
+the-cannibal,カニバル,killer,Leatherface,killers/the-cannibal.png
+the-nightmare,ナイトメア,killer,A Nightmare on Elm Street,killers/the-nightmare.png
+the-pig,ピッグ,killer,Saw,killers/the-pig.png
+the-clown,クラウン,killer,Curtain Call,killers/the-clown.png
+the-spirit,スピリット,killer,Shattered Bloodline,killers/the-spirit.png
+the-legion,リージョン,killer,Darkness Among Us,killers/the-legion.png
+the-plague,プレイグ,killer,Demise of the Faithful,killers/the-plague.png
+the-ghost-face,ゴーストフェイス,killer,Ghost Face,killers/the-ghost-face.png
+the-demogorgon,デモゴーゴン,killer,Stranger Things,killers/the-demogorgon.png
+the-oni,鬼,killer,Cursed Legacy,killers/the-oni.png
+the-deathslinger,デススリンガー,killer,Chains of Hate,killers/the-deathslinger.png
+the-executioner,エクセキューショナー,killer,Silent Hill,killers/the-executioner.png
+the-blight,ブライト,killer,Descend Beyond,killers/the-blight.png
+the-twins,ツインズ,killer,A Binding of Kin,killers/the-twins.png
+the-trickster,トリックスター,killer,All-Kill,killers/the-trickster.png
+the-nemesis,ネメシス,killer,Resident Evil,killers/the-nemesis.png
+the-cenobite,セノバイト,killer,Hellraiser,killers/the-cenobite.png
+the-artist,アーティスト,killer,Portrait of a Murder,killers/the-artist.png
+the-onryo,オンリョウ,killer,Sadako Rising,killers/the-onryo.png
+the-dredge,ドレッジ,killer,Roots of Dread,killers/the-dredge.png
+the-mastermind,マスターマインド,killer,Resident Evil: PROJECT W,killers/the-mastermind.png
+the-knight,ナイト,killer,Forged in Fog,killers/the-knight.png
+the-skull-merchant,スカルマーチャント,killer,Tools of Torment,killers/the-skull-merchant.png
+the-singularity,シンギュラリティ,killer,End Transmission,killers/the-singularity.png
+the-xenomorph,ゼノモーフ,killer,Alien,killers/the-xenomorph.png
+the-good-guy,グッドガイ,killer,Chucky,killers/the-good-guy.png
+the-unknown,アンノウン,killer,All Things Wicked,killers/the-unknown.png
+the-lich,リッチ,killer,Dungeons & Dragons,killers/the-lich.png
+the-dark-lord,ダークロード,killer,Castlevania,killers/the-dark-lord.png
+the-houndmaster,ハウンドマスター,killer,Doomed Course,killers/the-houndmaster.png
+the-ghoul,グール,killer,Tokyo Ghoul,killers/the-ghoul.png
+the-animatronic,アニマトロニック,killer,Five Nights at Freddy's,killers/the-animatronic.png
+the-krasue,クラスエ,killer,Sinister Grace,killers/the-krasue.png
+the-first,ファースト,killer,Stranger Things Chapter 2,killers/the-first.png
+the-slasher,スラッシャー,killer,Jason,killers/the-slasher.png
+dwight-fairfield,ドワイト・フェアフィールド,survivor,Dead by Daylight,survivors/dwight-fairfield.png
+meg-thomas,メグ・トーマス,survivor,Dead by Daylight,survivors/meg-thomas.png
+claudette-morel,クロデット・モレル,survivor,Dead by Daylight,survivors/claudette-morel.png
+jake-park,ジェイク・パーク,survivor,Dead by Daylight,survivors/jake-park.png
+nea-karlsson,ニア・カールソン,survivor,The Last Breath,survivors/nea-karlsson.png
+laurie-strode,ローリー・ストロード,survivor,Halloween,survivors/laurie-strode.png
+ace-visconti,エース・ヴィスコンティ,survivor,Of Flesh and Mud,survivors/ace-visconti.png
+bill-overbeck,ウィリアム・「ビル」・オーバーベック,survivor,Left Behind,survivors/bill-overbeck.png
+feng-min,フェン・ミン,survivor,Spark of Madness,survivors/feng-min.png
+david-king,デイビッド・キング,survivor,A Lullaby for the Dark,survivors/david-king.png
+quentin-smith,クエンティン・スミス,survivor,A Nightmare on Elm Street,survivors/quentin-smith.png
+david-tapp,デイビッド・タップ,survivor,Saw,survivors/david-tapp.png
+kate-denson,ケイト・デンソン,survivor,Curtain Call,survivors/kate-denson.png
+adam-francis,アダム・フランシス,survivor,Shattered Bloodline,survivors/adam-francis.png
+jeff-johansen,ジェフ・ヨハンセン,survivor,Darkness Among Us,survivors/jeff-johansen.png
+jane-romero,ジェーン・ロメロ,survivor,Demise of the Faithful,survivors/jane-romero.png
+ash-williams,アッシュ・ウィリアムズ,survivor,Ash vs Evil Dead,survivors/ash-williams.png
+nancy-wheeler,ナンシー・ウィラー,survivor,Stranger Things,survivors/nancy-wheeler.png
+steve-harrington,スティーブ・ハリントン,survivor,Stranger Things,survivors/steve-harrington.png
+yui-kimura,木村結衣,survivor,Cursed Legacy,survivors/yui-kimura.png
+zarina-kassir,ザリーナ・カッシル,survivor,Chains of Hate,survivors/zarina-kassir.png
+cheryl-mason,シェリル・メイソン,survivor,Silent Hill,survivors/cheryl-mason.png
+felix-richter,フェリックス・リヒター,survivor,Descend Beyond,survivors/felix-richter.png
+elodie-rakoto,エロディー・ラコト,survivor,A Binding of Kin,survivors/elodie-rakoto.png
+yun-jin-lee,リー・ユンジン,survivor,All-Kill,survivors/yun-jin-lee.png
+jill-valentine,ジル・バレンタイン,survivor,Resident Evil,survivors/jill-valentine.png
+leon-s-kennedy,レオン・S・ケネディ,survivor,Resident Evil,survivors/leon-s-kennedy.png
+mikaela-reid,ミカエラ・リード,survivor,Hour of the Witch,survivors/mikaela-reid.png
+jonah-vasquez,ジョナ・バスケス,survivor,Portrait of a Murder,survivors/jonah-vasquez.png
+yoichi-asakawa,浅川陽一,survivor,Sadako Rising,survivors/yoichi-asakawa.png
+haddie-kaur,ハディ・カウル,survivor,Roots of Dread,survivors/haddie-kaur.png
+ada-wong,エイダ・ウォン,survivor,Resident Evil: PROJECT W,survivors/ada-wong.png
+rebecca-chambers,レベッカ・チェンバース,survivor,Resident Evil: PROJECT W,survivors/rebecca-chambers.png
+vittorio-toscano,ビットリオ・トスカーノ,survivor,Forged in Fog,survivors/vittorio-toscano.png
+thalita-lyra,タリータ・ライラ,survivor,Tools of Torment,survivors/thalita-lyra.png
+renato-lyra,レナート・ライラ,survivor,Tools of Torment,survivors/renato-lyra.png
+gabriel-soma,ガブリエル・ソーマ,survivor,End Transmission,survivors/gabriel-soma.png
+nicolas-cage,ニコラス・ケイジ,survivor,Nicolas Cage,survivors/nicolas-cage.png
+ellen-ripley,エレン・リプリー,survivor,Alien,survivors/ellen-ripley.png
+alan-wake,アラン・ウェイク,survivor,Alan Wake,survivors/alan-wake.png
+sable-ward,セーブル・ウォード,survivor,All Things Wicked,survivors/sable-ward.png
+the-troupe,ザ・トループ,survivor,Dungeons & Dragons,survivors/the-troupe.png
+lara-croft,ララ・クロフト,survivor,Tomb Raider,survivors/lara-croft.png
+trevor-belmont,トレヴァー・ベルモンド,survivor,Castlevania,survivors/trevor-belmont.png
+taurie-cain,タウリエ・ケイン,survivor,Doomed Course,survivors/taurie-cain.png
+orela-rose,オレラ・ローズ,survivor,Steady Pulse,survivors/orela-rose.png
+michonne-grimes,ミショーン・グライムズ,survivor,The Walking Dead,survivors/michonne-grimes.png
+rick-grimes,リック・グライムズ,survivor,The Walking Dead,survivors/rick-grimes.png
+vee-boonyasak,ヴィー・ブーンヤサック,survivor,Sinister Grace,survivors/vee-boonyasak.png
+eleven,イレブン,survivor,Stranger Things Chapter 2,survivors/eleven.png
+dustin-henderson,ダスティン・ヘンダーソン,survivor,Stranger Things Chapter 2,survivors/dustin-henderson.png
+kwon-tae-young,クォン・テヨン,survivor,All-Kill: Comeback,survivors/kwon-tae-young.png
+shane-wiigwaas,シェイン・ウィグワース,survivor,The Life Road,survivors/shane-wiigwaas.png

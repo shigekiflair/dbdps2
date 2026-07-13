@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: var(--tf-bg);
+  color: var(--tf-text-primary);
+  font-family: var(--tf-font-body);
+  margin: 0;
+}

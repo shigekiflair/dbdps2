@@ -1,0 +1,11 @@
+<svg width="440" height="120" viewBox="0 0 440 120" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>Trial Forge</title>
+  <desc>Dead by Daylight配信企画ポータル Trial Forgeのロゴ</desc>
+  <rect width="440" height="120" fill="#0A0A0C"/>
+  <g transform="translate(15,10) scale(0.8)">
+    <path d="M5,50 L22,50 L30,22 L38,78 L46,50 L58,50 C58,50 82,50 82,30 C82,14 60,14 58,30 C57,38 63,43 70,40"
+          fill="none" stroke="#C4342F" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="110" y="58" font-family="Georgia, 'Times New Roman', serif" font-size="30" letter-spacing="4" fill="#F1EFE8">TRIAL FORGE</text>
+  <text x="112" y="82" font-family="Arial, sans-serif" font-size="12" letter-spacing="2" fill="#888780">DBD 配信企画ポータル</text>
+</svg>
