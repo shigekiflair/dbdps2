@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { drawBuildSlot, shareBuildResult } from "@/app/plans/actions";
+import { drawBuildSlot, getKillerAddons, shareBuildResult } from "@/app/plans/actions";
 
 type CharacterResult = { id: string; name: string; iconUrl: string | null };
 type PerkResult = { id: string; name: string; iconUrl: string | null };
+type AddonResult = { id: string; name: string; iconUrl: string | null };
 type NameOption = { id: string; name: string };
 
 type Row = {
   character: CharacterResult | null;
   perks: PerkResult[];
+  addons: AddonResult[];
   lockedChar: boolean;
   lockedPerkIds: Set<string>;
+  lockedAddonIds: Set<string>;
   hasDrawn: boolean;
   shareCode: string | null;
 };
@@ -22,12 +25,16 @@ function emptyRow(): Row {
   return {
     character: null,
     perks: [],
+    addons: [],
     lockedChar: false,
     lockedPerkIds: new Set(),
+    lockedAddonIds: new Set(),
     hasDrawn: false,
     shareCode: null,
   };
 }
+
+const ADDON_COUNT = 2;
 
 function pillClass(active: boolean) {
   return `rounded-full px-3 py-1.5 text-[11px] ${
@@ -57,10 +64,17 @@ export function RandomSelectTool({
   // --- 詳細ルール ------------------------------------------------
   const [perkUsageLimit, setPerkUsageLimit] = useState<number | null>(null);
   const [killerUsageLimit, setKillerUsageLimit] = useState<number | null>(null);
+  const [addonUsageLimit, setAddonUsageLimit] = useState<number | null>(null);
   const [bannedPerkIds, setBannedPerkIds] = useState<Set<string>>(new Set());
+  const [bannedAddonIds, setBannedAddonIds] = useState<Set<string>>(new Set());
+  // 抽選・指定で登場したキラーのアドオン一覧をキラーIDごとにキャッシュする
+  // （43体分を最初から全取得すると重いため、登場したキラーの分だけ遅延取得する）
+  const [addonOptionsByKiller, setAddonOptionsByKiller] = useState<Record<string, NameOption[]>>({});
+  const [addonKillerNames, setAddonKillerNames] = useState<Record<string, string>>({});
   const [perkCapRules, setPerkCapRules] = useState<PerkCapRule[]>([]);
   const [perkUsageCounts, setPerkUsageCounts] = useState<Record<string, number>>({});
   const [killerUsageCounts, setKillerUsageCounts] = useState<Record<string, number>>({});
+  const [addonUsageCounts, setAddonUsageCounts] = useState<Record<string, number>>({});
   const [capPerkDraft, setCapPerkDraft] = useState("");
   const [capCountDraft, setCapCountDraft] = useState("2");
 
@@ -90,6 +104,29 @@ export function RandomSelectTool({
     });
   }
 
+  function toggleBannedAddon(addonId: string) {
+    setBannedAddonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(addonId)) next.delete(addonId);
+      else next.add(addonId);
+      return next;
+    });
+  }
+
+  // 行にキラーが確定した際に呼び出し、そのキラーの全アドオンを1度だけ取得してキャッシュする
+  // （「禁止アドオン」プルダウンに表示するため。抽選そのものはサーバー側で完結する）
+  function ensureAddonOptions(killerId: string) {
+    const killerName = killers.find((k) => k.id === killerId)?.name;
+    if (killerName) setAddonKillerNames((prev) => (prev[killerId] ? prev : { ...prev, [killerId]: killerName }));
+    if (addonOptionsByKiller[killerId]) return;
+    startTransition(async () => {
+      const list = await getKillerAddons(killerId);
+      setAddonOptionsByKiller((prev) =>
+        prev[killerId] ? prev : { ...prev, [killerId]: list.map((a) => ({ id: a.id, name: a.name })) }
+      );
+    });
+  }
+
   function addCapRule() {
     if (!capPerkDraft) return;
     const perk = survivorPerks.find((p) => p.id === capPerkDraft);
@@ -108,6 +145,7 @@ export function RandomSelectTool({
   function resetUsageHistory() {
     setPerkUsageCounts({});
     setKillerUsageCounts({});
+    setAddonUsageCounts({});
   }
 
   // --- 抽選除外条件の算出 --------------------------------------------
@@ -144,11 +182,28 @@ export function RandomSelectTool({
       .map(([id]) => id);
   }
 
-  function bumpUsageCounts(newCharacter: CharacterResult | null, newPerks: PerkResult[]) {
+  function computeExcludedAddonIds(): string[] {
+    const excluded = new Set<string>(bannedAddonIds);
+    if (addonUsageLimit !== null) {
+      for (const [addonId, cnt] of Object.entries(addonUsageCounts)) {
+        if (cnt >= addonUsageLimit) excluded.add(addonId);
+      }
+    }
+    return Array.from(excluded);
+  }
+
+  function bumpUsageCounts(newCharacter: CharacterResult | null, newPerks: PerkResult[], newAddons: AddonResult[] = []) {
     if (newPerks.length > 0) {
       setPerkUsageCounts((prev) => {
         const next = { ...prev };
         for (const p of newPerks) next[p.id] = (next[p.id] ?? 0) + 1;
+        return next;
+      });
+    }
+    if (newAddons.length > 0) {
+      setAddonUsageCounts((prev) => {
+        const next = { ...prev };
+        for (const a of newAddons) next[a.id] = (next[a.id] ?? 0) + 1;
         return next;
       });
     }
@@ -165,28 +220,46 @@ export function RandomSelectTool({
     const keptPerks = resetAll ? [] : row.perks.filter((p) => row.lockedPerkIds.has(p.id));
     const perkCount = 4 - keptPerks.length;
 
+    // アドオンはキラーに紐づくため、キラーを引き直す場合は固定を引き継がずリセットする
+    const keptAddons = resetAll || needCharacter ? [] : row.addons.filter((a) => row.lockedAddonIds.has(a.id));
+    const addonCount = role === "killer" ? ADDON_COUNT - keptAddons.length : 0;
+
     const otherCounts = tallyOtherRowsPerkCounts(index);
     const excludePerkIds = [...keptPerks.map((p) => p.id), ...computeExcludedPerkIds(otherCounts)];
     const excludeCharacterIds = computeExcludedCharacterIds();
+    const excludeAddonIds = [...keptAddons.map((a) => a.id), ...computeExcludedAddonIds()];
+    const currentKillerId = !needCharacter ? row.character?.id : undefined;
 
     startTransition(async () => {
-      const drawn = await drawBuildSlot(role, { needCharacter, perkCount, excludePerkIds, excludeCharacterIds });
+      const drawn = await drawBuildSlot(role, {
+        needCharacter,
+        perkCount,
+        excludePerkIds,
+        excludeCharacterIds,
+        addonCount,
+        excludeAddonIds,
+        currentKillerId,
+      });
       const finalCharacter = needCharacter ? drawn.character : row.character;
+      const finalAddons = role === "killer" ? [...keptAddons, ...drawn.addons] : [];
 
       setRows((prev) => {
         const next = [...prev];
         next[index] = {
           character: finalCharacter,
           perks: [...keptPerks, ...drawn.perks],
+          addons: finalAddons,
           lockedChar: resetAll ? false : row.lockedChar,
           lockedPerkIds: resetAll ? new Set() : row.lockedPerkIds,
+          lockedAddonIds: resetAll || needCharacter ? new Set() : row.lockedAddonIds,
           hasDrawn: true,
           shareCode: null,
         };
         return next;
       });
 
-      bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks);
+      if (role === "killer" && finalCharacter) ensureAddonOptions(finalCharacter.id);
+      bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons);
     });
   }
 
@@ -201,7 +274,9 @@ export function RandomSelectTool({
 
       const newRows: Row[] = [];
       const perkUsageDelta: Record<string, number> = {};
+      const addonUsageDelta: Record<string, number> = {};
       let killerUsageDeltaId: string | null = null;
+      const killersToLoad = new Set<string>();
 
       for (const row of rows) {
         const needCharacter = resetAll || !row.hasDrawn || !row.lockedChar;
@@ -209,33 +284,62 @@ export function RandomSelectTool({
         const perkCount = 4 - keptPerks.length;
         const excludePerkIds = [...keptPerks.map((p) => p.id), ...computeExcludedPerkIds(batchPerkCounts)];
 
-        const drawn = await drawBuildSlot(role, { needCharacter, perkCount, excludePerkIds, excludeCharacterIds });
+        const keptAddons =
+          resetAll || !row.hasDrawn || needCharacter ? [] : row.addons.filter((a) => row.lockedAddonIds.has(a.id));
+        const addonCount = role === "killer" ? ADDON_COUNT - keptAddons.length : 0;
+        const excludeAddonIds = [...keptAddons.map((a) => a.id), ...computeExcludedAddonIds()];
+        const currentKillerId = !needCharacter ? row.character?.id : undefined;
+
+        const drawn = await drawBuildSlot(role, {
+          needCharacter,
+          perkCount,
+          excludePerkIds,
+          excludeCharacterIds,
+          addonCount,
+          excludeAddonIds,
+          currentKillerId,
+        });
         const finalCharacter = needCharacter ? drawn.character : row.character;
         const finalPerks = [...keptPerks, ...drawn.perks];
+        const finalAddons = role === "killer" ? [...keptAddons, ...drawn.addons] : [];
 
         for (const p of drawn.perks) {
           batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
           perkUsageDelta[p.id] = (perkUsageDelta[p.id] ?? 0) + 1;
         }
+        for (const a of drawn.addons) {
+          addonUsageDelta[a.id] = (addonUsageDelta[a.id] ?? 0) + 1;
+        }
         if (needCharacter && role === "killer" && finalCharacter) {
           killerUsageDeltaId = finalCharacter.id;
         }
+        if (role === "killer" && finalCharacter) killersToLoad.add(finalCharacter.id);
 
         newRows.push({
           character: finalCharacter,
           perks: finalPerks,
+          addons: finalAddons,
           lockedChar: resetAll || !row.hasDrawn ? false : row.lockedChar,
           lockedPerkIds: resetAll || !row.hasDrawn ? new Set() : row.lockedPerkIds,
+          lockedAddonIds: resetAll || !row.hasDrawn || needCharacter ? new Set() : row.lockedAddonIds,
           hasDrawn: true,
           shareCode: null,
         });
       }
 
       setRows(newRows);
+      for (const killerId of killersToLoad) ensureAddonOptions(killerId);
       if (Object.keys(perkUsageDelta).length > 0) {
         setPerkUsageCounts((prev) => {
           const next = { ...prev };
           for (const [id, delta] of Object.entries(perkUsageDelta)) next[id] = (next[id] ?? 0) + delta;
+          return next;
+        });
+      }
+      if (Object.keys(addonUsageDelta).length > 0) {
+        setAddonUsageCounts((prev) => {
+          const next = { ...prev };
+          for (const [id, delta] of Object.entries(addonUsageDelta)) next[id] = (next[id] ?? 0) + delta;
           return next;
         });
       }
@@ -254,11 +358,14 @@ export function RandomSelectTool({
       next[index] = {
         ...next[index],
         character: { ...character, iconUrl: null },
+        addons: [],
         lockedChar: true,
+        lockedAddonIds: new Set(),
         hasDrawn: true,
       };
       return next;
     });
+    if (role === "killer") ensureAddonOptions(characterId);
     bumpUsageCounts({ ...character, iconUrl: null }, []);
   }
 
@@ -282,11 +389,23 @@ export function RandomSelectTool({
     });
   }
 
+  function toggleLockAddon(index: number, addonId: string) {
+    setRows((prev) => {
+      const next = [...prev];
+      const row = next[index];
+      const lockedAddonIds = new Set(row.lockedAddonIds);
+      if (lockedAddonIds.has(addonId)) lockedAddonIds.delete(addonId);
+      else lockedAddonIds.add(addonId);
+      next[index] = { ...row, lockedAddonIds };
+      return next;
+    });
+  }
+
   function shareRow(index: number) {
     const row = rows[index];
     if (!row.character) return;
     startTransition(async () => {
-      const code = await shareBuildResult({ role, character: row.character, perks: row.perks });
+      const code = await shareBuildResult({ role, character: row.character, perks: row.perks, addons: row.addons });
       setRows((prev) => {
         const next = [...prev];
         next[index] = { ...next[index], shareCode: code };
@@ -358,6 +477,25 @@ export function RandomSelectTool({
             </div>
           )}
 
+          {role === "killer" && (
+            <div>
+              <p className="mb-1 text-[11px] text-bone-muted">
+                アドオン使用上限（この画面を開いている間のみ有効、リロードでリセット）
+              </p>
+              <div className="flex gap-2">
+                {LIMIT_OPTIONS.map((v) => (
+                  <button
+                    key={String(v)}
+                    onClick={() => setAddonUsageLimit(v)}
+                    className={pillClass(addonUsageLimit === v)}
+                  >
+                    {v === null ? "なし" : `${v}回まで`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <p className="mb-1 text-[11px] text-bone-muted">禁止パーク</p>
             <select
@@ -394,6 +532,59 @@ export function RandomSelectTool({
               </div>
             )}
           </div>
+
+          {role === "killer" && (
+            <div>
+              <p className="mb-1 text-[11px] text-bone-muted">
+                禁止アドオン（抽選や指定で登場したキラーの分から選べます）
+              </p>
+              {Object.keys(addonOptionsByKiller).length === 0 ? (
+                <p className="text-[11px] text-bone-muted">
+                  まだキラーが登場していません。抽選するか指定すると、そのキラーのアドオン一覧が選べるようになります。
+                </p>
+              ) : (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) toggleBannedAddon(e.target.value);
+                  }}
+                  className="w-full rounded-lg border border-[#2C2C2A] bg-ash2 px-2 py-1.5 text-[11px] text-bone"
+                >
+                  <option value="">追加する...</option>
+                  {Object.entries(addonOptionsByKiller).map(([killerId, options]) => (
+                    <optgroup key={killerId} label={addonKillerNames[killerId] ?? killerId}>
+                      {options.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
+              {bannedAddonIds.size > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {[...bannedAddonIds].map((id) => {
+                    const a = Object.values(addonOptionsByKiller)
+                      .flat()
+                      .find((x) => x.id === id);
+                    if (!a) return null;
+                    return (
+                      <span
+                        key={id}
+                        className="flex items-center gap-1 rounded-full bg-blood-dark px-2 py-1 text-[10px] text-[#F5C4B3]"
+                      >
+                        {a.name}
+                        <button onClick={() => toggleBannedAddon(id)} aria-label="削除">
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {role === "survivor" && (
             <div>
@@ -527,6 +718,28 @@ export function RandomSelectTool({
                 })}
               </div>
             </div>
+
+            {role === "killer" && (
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                {Array.from({ length: ADDON_COUNT }).map((_, i) => {
+                  const addon = row.addons[i];
+                  const locked = !!addon && row.lockedAddonIds.has(addon.id);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => addon && toggleLockAddon(index, addon.id)}
+                      className={`rounded-lg border p-3 text-center ${
+                        locked ? "border-blood" : "border-[#2C2C2A]"
+                      } bg-ash2`}
+                    >
+                      <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
+                      <p className="text-[11px] text-bone">{addon?.name ?? "?"}</p>
+                      {locked && <p className="mt-1 text-[10px] text-blood">固定中</p>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="mb-2 flex gap-2">
               <button

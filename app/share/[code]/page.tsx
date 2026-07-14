@@ -6,6 +6,7 @@ type BuildPayload = {
   role: string;
   character: ResultPerk | null;
   perks: ResultPerk[];
+  addons?: ResultPerk[];
 };
 
 export default async function SharePage({ params }: { params: Promise<{ code: string }> }) {
@@ -16,7 +17,7 @@ export default async function SharePage({ params }: { params: Promise<{ code: st
   const payload = result.resultPayload as ResultPerk[] | BuildPayload;
   const isBuild = !Array.isArray(payload) && payload && "character" in payload;
   const items: ResultPerk[] = isBuild
-    ? [...(payload.character ? [payload.character] : []), ...payload.perks]
+    ? [...(payload.character ? [payload.character] : []), ...payload.perks, ...(payload.addons ?? [])]
     : (payload as ResultPerk[]);
 
   return (

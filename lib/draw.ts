@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { perks, taggables, tags, characters } from "@/db/schema";
+import { perks, taggables, tags, characters, addons as addonsTable } from "@/db/schema";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 
 type PoolConfig = {
@@ -14,6 +14,8 @@ type PoolConfig = {
 type DrawOptions = {
   role?: "survivor" | "killer";
   excludeIds?: string[]; // 固定中(ロック中)のカードは再抽選対象から除外する
+  killerId?: string; // pool.source: "addon" でキラー固有アドオンに絞り込む場合に指定
+  itemId?: string; // pool.source: "addon" でアイテム(医療キット等)アドオンに絞り込む場合に指定
 };
 
 export async function drawFromPool(pool: PoolConfig, opts: DrawOptions = {}) {
@@ -29,8 +31,23 @@ export async function drawFromPool(pool: PoolConfig, opts: DrawOptions = {}) {
     return shuffle(rows).slice(0, pool.count ?? 1);
   }
 
+  if (pool.source === "addon") {
+    if (!opts.killerId && !opts.itemId) {
+      // どのキラー/アイテムのアドオンか未確定な状態では抽選できない
+      // (呼び出し側でキャラクター決定後に killerId/itemId を渡すこと)
+      return [];
+    }
+    const whereClauses = [];
+    if (opts.killerId) whereClauses.push(eq(addonsTable.killerId, opts.killerId));
+    if (opts.itemId) whereClauses.push(eq(addonsTable.itemId, opts.itemId));
+    if (opts.excludeIds?.length) whereClauses.push(notInArray(addonsTable.id, opts.excludeIds));
+
+    const rows = await db.select().from(addonsTable).where(and(...whereClauses));
+    return shuffle(rows).slice(0, pool.count ?? 2);
+  }
+
   if (pool.source !== "perk") {
-    // addon / offering / map の抽選は同じ形で今後追加する
+    // offering / map の抽選は同じ形で今後追加する
     throw new Error(`未対応のpool.source: ${pool.source}`);
   }
 

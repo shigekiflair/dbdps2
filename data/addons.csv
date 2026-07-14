@@ -1,0 +1,10 @@
+slug,name,description_summary,rarity,killer_slug,item_slug,icon_url
+wooden-stake,木の杭,トラップの設置速度をわずかに上昇させる,common,the-trapper,,addons/wooden-stake.png
+rusty-trap,錆びたトラップ,トラップの発見しやすさをわずかに下げる,common,the-trapper,,addons/rusty-trap.png
+trappers-sack,トラッパーの袋,持ち運べるトラップの所持数を1つ増やす,uncommon,the-trapper,,addons/trappers-sack.png
+serrated-jaws,ギザギザの顎,トラップにかかった際の負傷段階を1段階進める,rare,the-trapper,,addons/serrated-jaws.png
+padded-jaws,詰め物された顎,トラップにかかった生存者の脱出試行時間をわずかに延ばす,very_rare,the-trapper,,addons/padded-jaws.png
+iridescent-stone,イリデセントストーン,設置済みの全トラップの位置を看破可能にする,ultra_rare,the-trapper,,addons/iridescent-stone.png
+gel-dressings,ジェル包帯,治療速度をわずかに上昇させる,common,,medkit,addons/gel-dressings.png
+bandages,包帯,治療アクション時の消費量をわずかに減らす,common,,medkit,addons/bandages.png
+styptic-agent,止血剤,自己治療時のスキルチェックの難易度を下げる,rare,,medkit,addons/styptic-agent.png

@@ -1,0 +1,6 @@
+slug,name,icon_url
+medkit,医療キット,items/medkit.png
+toolbox,工具箱,items/toolbox.png
+flashlight,懐中電灯,items/flashlight.png
+key,鍵,items/key.png
+map,マップ,items/map.png

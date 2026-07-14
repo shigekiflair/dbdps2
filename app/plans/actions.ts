@@ -34,6 +34,11 @@ export async function drawBuildSlot(
     perkCount: number;
     excludePerkIds?: string[];
     excludeCharacterIds?: string[];
+    // キラーのアドオン抽選（サバイバー側は今回未対応。needCharacter=falseの行を
+    // 再抽選する際は、既に確定しているキラーIDをcurrentKillerIdで渡す）
+    addonCount?: number;
+    excludeAddonIds?: string[];
+    currentKillerId?: string;
   }
 ) {
   const character = opts.needCharacter
@@ -48,13 +53,28 @@ export async function drawBuildSlot(
         )
       : [];
 
-  return { character, perks };
+  const killerId = character?.id ?? (opts.needCharacter ? null : opts.currentKillerId ?? null);
+  const addons =
+    role === "killer" && killerId && (opts.addonCount ?? 0) > 0
+      ? await drawFromPool(
+          { source: "addon", count: opts.addonCount },
+          { killerId, excludeIds: opts.excludeAddonIds }
+        )
+      : [];
+
+  return { character, perks, addons };
+}
+
+/** 詳細ルール設定の「禁止アドオン」選択肢を作るため、指定キラーの全アドオンを取得する */
+export async function getKillerAddons(killerId: string) {
+  return drawFromPool({ source: "addon", count: 9999 }, { killerId });
 }
 
 export async function shareBuildResult(payload: {
   role: "survivor" | "killer";
   character: { id: string; name: string; iconUrl: string | null } | null;
   perks: { id: string; name: string; iconUrl: string | null }[];
+  addons?: { id: string; name: string; iconUrl: string | null }[];
 }) {
   const plan = await getPlanBySlug("random-select");
   if (!plan) throw new Error("plan not found");

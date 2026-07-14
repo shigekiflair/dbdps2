@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { parse } from "csv-parse/sync";
 import { db } from "../db/index";
-import { characters, perks, tags, taggables } from "../db/schema";
+import { characters, perks, tags, taggables, items, addons, rarityEnum } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -12,10 +12,14 @@ import { eq } from "drizzle-orm";
  * data/characters.csv → characters テーブル
  * data/tags.csv       → tags テーブル
  * data/perks.csv      → perks テーブル + taggables(perk⇔tag紐付け)
+ * data/items.csv      → items テーブル（アイテムカテゴリ：医療キット等5種）
+ * data/addons.csv     → addons テーブル（killer_slugかitem_slugのどちらか一方を指定）
  *
  * CSVを差し替えれば、キラー/サバイバーやパークが増えるたびに
  * このスクリプトを再実行するだけでDBが最新化される想定。
  */
+
+const VALID_RARITIES = new Set(rarityEnum.enumValues);
 
 function readCsv(path: string) {
   const raw = readFileSync(path, "utf-8");
@@ -106,10 +110,99 @@ async function importPerks() {
   console.log(`perks: ${rows.length}件 処理`);
 }
 
+async function importItems() {
+  const rows = readCsv("data/items.csv");
+
+  for (const row of rows) {
+    await db
+      .insert(items)
+      .values({
+        slug: row.slug,
+        name: row.name,
+        iconUrl: row.icon_url || null,
+      })
+      .onConflictDoNothing();
+  }
+  console.log(`items: ${rows.length}件 処理`);
+}
+
+async function importAddons() {
+  const rows = readCsv("data/addons.csv");
+  if (rows.length === 0) {
+    console.log("addons: data/addons.csv が空のためスキップ");
+    return;
+  }
+
+  // slug → id の解決用マップ
+  const allCharacters = await db.select().from(characters);
+  const charBySlug = new Map(allCharacters.map((c) => [c.slug, c.id]));
+
+  const allItems = await db.select().from(items);
+  const itemBySlug = new Map(allItems.map((i) => [i.slug, i.id]));
+
+  let skipped = 0;
+
+  for (const row of rows) {
+    const killerSlug = (row.killer_slug || "").trim();
+    const itemSlug = (row.item_slug || "").trim();
+
+    // killer_slug と item_slug はどちらか一方だけが入っている想定。
+    // 両方空 / 両方あり / 未登録slug はデータ不備としてスキップする。
+    if ((killerSlug && itemSlug) || (!killerSlug && !itemSlug)) {
+      console.warn(
+        `不正な行をスキップ: ${row.slug}（killer_slugとitem_slugはどちらか一方のみ指定してください）`
+      );
+      skipped++;
+      continue;
+    }
+
+    if (!VALID_RARITIES.has(row.rarity as (typeof rarityEnum.enumValues)[number])) {
+      console.warn(`不正なrarityをスキップ: ${row.slug}（値: ${row.rarity}）`);
+      skipped++;
+      continue;
+    }
+
+    let killerId: string | null = null;
+    let itemId: string | null = null;
+
+    if (killerSlug) {
+      killerId = charBySlug.get(killerSlug) ?? null;
+      if (!killerId) {
+        console.warn(`未登録killer_slugをスキップ: ${row.slug}（値: ${killerSlug}）`);
+        skipped++;
+        continue;
+      }
+    } else {
+      itemId = itemBySlug.get(itemSlug) ?? null;
+      if (!itemId) {
+        console.warn(`未登録item_slugをスキップ: ${row.slug}（値: ${itemSlug}）`);
+        skipped++;
+        continue;
+      }
+    }
+
+    await db
+      .insert(addons)
+      .values({
+        slug: row.slug,
+        name: row.name,
+        description: row.description_summary || null,
+        rarity: row.rarity as (typeof rarityEnum.enumValues)[number],
+        killerId,
+        itemId,
+        iconUrl: row.icon_url || null,
+      })
+      .onConflictDoNothing();
+  }
+  console.log(`addons: ${rows.length}件中 ${rows.length - skipped}件 処理（${skipped}件スキップ）`);
+}
+
 async function main() {
   await importCharacters();
   await importTags();
   await importPerks();
+  await importItems();
+  await importAddons();
   console.log("インポート完了");
 }
 
