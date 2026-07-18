@@ -1,6 +1,5 @@
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
-/// <reference path="./.next/types/routes.d.ts" />
 
-// NOTE: This file should not be edited
-// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+// NOTE: `npm run dev` を一度実行すると、Next.jsがこのファイルを自動更新します。
+// 手動で編集しないでください。
