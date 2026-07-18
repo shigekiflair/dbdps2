@@ -9,37 +9,121 @@ body {
   margin: 0;
 }
 
-/* 抽選中: カードが高速でめくれているような揺らぎ演出 */
-@keyframes tf-spin-flicker {
-  0%, 100% { opacity: 1; transform: scaleY(1); filter: blur(0); }
-  50% { opacity: 0.55; transform: scaleY(0.94); filter: blur(0.6px); }
+/* 抽選中: 縞模様が高速で流れる「回転するリール」の質感 */
+@keyframes tf-reel-scroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 -80px; }
 }
 .tf-card-spinning {
-  animation: tf-spin-flicker 0.12s linear infinite;
+  position: relative;
+  overflow: hidden;
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08) 0px,
+    rgba(255, 255, 255, 0.08) 3px,
+    rgba(0, 0, 0, 0.15) 3px,
+    rgba(0, 0, 0, 0.15) 20px
+  ) !important;
+  animation: tf-reel-scroll 0.25s linear infinite;
+  filter: blur(1.5px) brightness(0.85);
+}
+.tf-card-spinning * {
+  visibility: hidden;
 }
 
-/* 抽選結果が決まった瞬間の着地バウンド */
+/* 抽選結果が決まった瞬間: 着地バウンド + 一瞬の光の走り抜け */
 @keyframes tf-settle {
-  0% { transform: scale(0.9); }
-  60% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% { transform: scale(0.82) rotate(-2deg); }
+  55% { transform: scale(1.08) rotate(1deg); }
+  75% { transform: scale(0.97); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes tf-shine-sweep {
+  0% { transform: translateX(-120%) skewX(-20deg); opacity: 0.9; }
+  100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
 }
 .tf-card-settle {
-  animation: tf-settle 0.25s ease-out;
+  position: relative;
+  overflow: hidden;
+  animation: tf-settle 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.tf-card-settle::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 40%;
+  height: 140%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: tf-shine-sweep 0.5s ease-out;
+  pointer-events: none;
 }
 
-/* ウルトラレア専用: 縁が光り軽く揺れる */
-@keyframes tf-ultra-glow {
-  0%, 100% { box-shadow: 0 0 10px 2px rgba(224, 95, 176, 0.55); }
-  50% { box-shadow: 0 0 20px 6px rgba(224, 95, 176, 0.85); }
+/* ウルトラレア: 虹色に揺らめく縁 + 強い光 + 呼吸する拡縮 + バースト火花 */
+@keyframes tf-iridescent-shift {
+  0% { filter: hue-rotate(0deg) saturate(1.4); }
+  100% { filter: hue-rotate(360deg) saturate(1.4); }
 }
-@keyframes tf-ultra-shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-3px); }
-  40% { transform: translateX(3px); }
-  60% { transform: translateX(-2px); }
-  80% { transform: translateX(2px); }
+@keyframes tf-ultra-glow {
+  0%, 100% { box-shadow: 0 0 16px 4px rgba(224, 95, 176, 0.65), 0 0 32px 10px rgba(138, 63, 176, 0.35); }
+  50% { box-shadow: 0 0 28px 8px rgba(224, 95, 176, 0.95), 0 0 48px 16px rgba(138, 63, 176, 0.55); }
+}
+@keyframes tf-ultra-pop {
+  0% { transform: scale(0.7) rotate(-6deg); }
+  30% { transform: scale(1.18) rotate(3deg); }
+  50% { transform: scale(0.95) rotate(-2deg); }
+  70% { transform: scale(1.05) rotate(1deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+@keyframes tf-ultra-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
 }
 .tf-ultra-rare {
-  animation: tf-ultra-glow 1.4s ease-in-out infinite, tf-ultra-shake 0.4s ease-out 1;
+  position: relative;
+  overflow: visible !important;
+  animation:
+    tf-ultra-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1),
+    tf-ultra-glow 1.1s ease-in-out infinite 0.5s,
+    tf-iridescent-shift 2.4s linear infinite 0.5s,
+    tf-ultra-breathe 1.6s ease-in-out infinite 0.5s;
+  z-index: 5;
+}
+.tf-ultra-rare::before {
+  content: "★ ULTRA RARE ★";
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #ffd4ee;
+  background: linear-gradient(90deg, #4a1030, #7a2a5a, #4a1030);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #ff9ad9;
+  animation: tf-label-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s forwards;
+}
+@keyframes tf-label-pop {
+  0% { transform: translateX(-50%) scale(0) translateY(6px); opacity: 0; }
+  100% { transform: translateX(-50%) scale(1) translateY(0); opacity: 1; }
+}
+
+.tf-spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffb8e6;
+  pointer-events: none;
+  animation: tf-spark-fly 0.7s ease-out 0.4s forwards;
+  opacity: 0;
+}
+@keyframes tf-spark-fly {
+  0% { transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateX(0) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateX(60px) scale(0.2); opacity: 0; }
 }

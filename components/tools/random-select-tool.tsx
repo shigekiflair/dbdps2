@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type CSSProperties } from "react";
 import { drawBuildSlot, getKillerAddons, shareBuildResult } from "@/app/plans/actions";
 import { RARITY_STYLE, type Rarity } from "@/lib/rarity-colors";
 
@@ -732,9 +732,11 @@ export function RandomSelectTool({
                   const style = rarity ? RARITY_STYLE[rarity] : null;
                   const spinning = isPending && !locked;
                   const isUltra = !!style && rarity === "ultra_rare" && !spinning;
+                  const settleClass = spinning ? "tf-card-spinning" : isUltra ? "tf-ultra-rare" : "tf-card-settle";
                   return (
                     <button
-                      key={i}
+                      // addon.id を含めることで、毎回演出アニメーションが最初から再生される
+                      key={`${i}-${addon?.id ?? "empty"}`}
                       onClick={() => addon && toggleLockAddon(index, addon.id)}
                       style={
                         style && !spinning
@@ -743,10 +745,16 @@ export function RandomSelectTool({
                       }
                       className={`rounded-lg border p-3 text-center transition-colors ${
                         style ? "" : "bg-ash2"
-                      } ${locked && !style ? "border-blood" : !style ? "border-[#2C2C2A]" : ""} ${
-                        spinning ? "tf-card-spinning" : "tf-card-settle"
-                      } ${isUltra ? "tf-ultra-rare" : ""}`}
+                      } ${locked && !style ? "border-blood" : !style ? "border-[#2C2C2A]" : ""} ${settleClass}`}
                     >
+                      {isUltra &&
+                        Array.from({ length: 8 }).map((_, s) => (
+                          <span
+                            key={s}
+                            className="tf-spark"
+                            style={{ "--spark-angle": `${s * 45}deg` } as CSSProperties}
+                          />
+                        ))}
                       <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
                       {style && !spinning && (
                         <p className="mb-1 text-[9px] uppercase tracking-wide" style={{ color: style.labelText }}>
