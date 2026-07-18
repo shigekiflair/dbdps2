@@ -3,5 +3,6 @@
 /out/
 .env
 .env.local
+.env.sentry-build-plugin
 *.log
 .DS_Store

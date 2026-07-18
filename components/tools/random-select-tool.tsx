@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { drawBuildSlot, getKillerAddons, shareBuildResult } from "@/app/plans/actions";
+import { RARITY_STYLE, type Rarity } from "@/lib/rarity-colors";
 
 type CharacterResult = { id: string; name: string; iconUrl: string | null };
 type PerkResult = { id: string; name: string; iconUrl: string | null };
-type AddonResult = { id: string; name: string; iconUrl: string | null };
+type AddonResult = { id: string; name: string; iconUrl: string | null; rarity?: Rarity };
 type NameOption = { id: string; name: string };
 
 type Row = {
@@ -676,10 +677,12 @@ export function RandomSelectTool({
                   onClick={() => row.character && toggleLockChar(index)}
                   className={`w-full rounded-lg border p-3 text-center ${
                     row.lockedChar ? "border-blood" : "border-[#2C2C2A]"
-                  } bg-ash2`}
+                  } bg-ash2 ${isPending && !row.lockedChar ? "tf-card-spinning" : "tf-card-settle"}`}
                 >
                   <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                  <p className="text-[11px] text-bone">{row.character?.name ?? "?"}</p>
+                  <p className="text-[11px] text-bone">
+                    {isPending && !row.lockedChar ? "…" : row.character?.name ?? "?"}
+                  </p>
                   {row.lockedChar && <p className="mt-1 text-[10px] text-blood">固定中</p>}
                 </button>
                 <select
@@ -702,16 +705,17 @@ export function RandomSelectTool({
                 {Array.from({ length: 4 }).map((_, i) => {
                   const perk = row.perks[i];
                   const locked = !!perk && row.lockedPerkIds.has(perk.id);
+                  const spinning = isPending && !locked;
                   return (
                     <button
                       key={i}
                       onClick={() => perk && toggleLockPerk(index, perk.id)}
                       className={`rounded-lg border p-3 text-center ${
                         locked ? "border-blood" : "border-[#2C2C2A]"
-                      } bg-ash2`}
+                      } bg-ash2 ${spinning ? "tf-card-spinning" : "tf-card-settle"}`}
                     >
                       <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                      <p className="text-[11px] text-bone">{perk?.name ?? "?"}</p>
+                      <p className="text-[11px] text-bone">{spinning ? "…" : perk?.name ?? "?"}</p>
                       {locked && <p className="mt-1 text-[10px] text-blood">固定中</p>}
                     </button>
                   );
@@ -724,17 +728,45 @@ export function RandomSelectTool({
                 {Array.from({ length: ADDON_COUNT }).map((_, i) => {
                   const addon = row.addons[i];
                   const locked = !!addon && row.lockedAddonIds.has(addon.id);
+                  const rarity = addon?.rarity;
+                  const style = rarity ? RARITY_STYLE[rarity] : null;
+                  const spinning = isPending && !locked;
+                  const isUltra = !!style && rarity === "ultra_rare" && !spinning;
                   return (
                     <button
                       key={i}
                       onClick={() => addon && toggleLockAddon(index, addon.id)}
-                      className={`rounded-lg border p-3 text-center ${
-                        locked ? "border-blood" : "border-[#2C2C2A]"
-                      } bg-ash2`}
+                      style={
+                        style && !spinning
+                          ? { background: style.bg, borderColor: style.border }
+                          : undefined
+                      }
+                      className={`rounded-lg border p-3 text-center transition-colors ${
+                        style ? "" : "bg-ash2"
+                      } ${locked && !style ? "border-blood" : !style ? "border-[#2C2C2A]" : ""} ${
+                        spinning ? "tf-card-spinning" : "tf-card-settle"
+                      } ${isUltra ? "tf-ultra-rare" : ""}`}
                     >
                       <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                      <p className="text-[11px] text-bone">{addon?.name ?? "?"}</p>
-                      {locked && <p className="mt-1 text-[10px] text-blood">固定中</p>}
+                      {style && !spinning && (
+                        <p className="mb-1 text-[9px] uppercase tracking-wide" style={{ color: style.labelText }}>
+                          {style.label}
+                        </p>
+                      )}
+                      <p
+                        className="text-[11px]"
+                        style={style && !spinning ? { color: style.text } : undefined}
+                      >
+                        {spinning ? "…" : addon?.name ?? "?"}
+                      </p>
+                      {locked && (
+                        <p
+                          className="mt-1 text-[10px]"
+                          style={style ? { color: style.labelText } : undefined}
+                        >
+                          固定中
+                        </p>
+                      )}
                     </button>
                   );
                 })}

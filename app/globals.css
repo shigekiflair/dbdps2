@@ -8,3 +8,38 @@ body {
   font-family: var(--tf-font-body);
   margin: 0;
 }
+
+/* 抽選中: カードが高速でめくれているような揺らぎ演出 */
+@keyframes tf-spin-flicker {
+  0%, 100% { opacity: 1; transform: scaleY(1); filter: blur(0); }
+  50% { opacity: 0.55; transform: scaleY(0.94); filter: blur(0.6px); }
+}
+.tf-card-spinning {
+  animation: tf-spin-flicker 0.12s linear infinite;
+}
+
+/* 抽選結果が決まった瞬間の着地バウンド */
+@keyframes tf-settle {
+  0% { transform: scale(0.9); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+.tf-card-settle {
+  animation: tf-settle 0.25s ease-out;
+}
+
+/* ウルトラレア専用: 縁が光り軽く揺れる */
+@keyframes tf-ultra-glow {
+  0%, 100% { box-shadow: 0 0 10px 2px rgba(224, 95, 176, 0.55); }
+  50% { box-shadow: 0 0 20px 6px rgba(224, 95, 176, 0.85); }
+}
+@keyframes tf-ultra-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+.tf-ultra-rare {
+  animation: tf-ultra-glow 1.4s ease-in-out infinite, tf-ultra-shake 0.4s ease-out 1;
+}
