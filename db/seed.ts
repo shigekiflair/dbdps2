@@ -282,6 +282,73 @@ async function main() {
   });
 
   console.log("plans: 全制覇系3件 投入完了");
+
+  // --- 企画13: ターゲット指定型「ファーストダウン最速ターゲット指名手配ガチャ」 ---
+  await db.insert(plans).values({
+    slug: "first-down-bounty-target",
+    title: "ファーストダウン最速ターゲット指名手配ガチャ",
+    description:
+      "試合開始前にサバイバーを1人ランダムで指名。誰よりも早くその生存者をダウンさせられるか、OBS常時表示リンクで視聴者と一緒に見守る",
+    type: "target_pick",
+    target: "killer",
+    poolConfig: { source: "survivor", count: 1 },
+    inputFields: [],
+    outputDisplay: { layout: "target_card", shareable: true, ogpTemplate: "default" },
+    stateModel: "stateless",
+    isPublished: true,
+    sortOrder: 9,
+  }).onConflictDoUpdate({
+    target: plans.slug,
+    set: {
+      title: "ファーストダウン最速ターゲット指名手配ガチャ",
+      description:
+        "試合開始前にサバイバーを1人ランダムで指名。誰よりも早くその生存者をダウンさせられるか、OBS常時表示リンクで視聴者と一緒に見守る",
+      poolConfig: { source: "survivor", count: 1 },
+      sortOrder: 9,
+    },
+  });
+
+  console.log("plans: ファーストダウン最速ターゲット指名手配ガチャ 投入完了");
+
+  // --- 企画14: エスカレーション型「献身ポイント・ロシアンルーレット」 ---
+  const devotionRules = [
+    "次の1試合、セルフケア（自己治療）禁止",
+    "次の1試合、パレットを投げてのスタン禁止",
+    "次の1試合、窓枠の高速降り禁止",
+    "次の1試合、アイテムの持ち込み禁止",
+    "次の1試合、発電機の同時修理禁止（常に1人で作業する）",
+    "次の1試合、しゃがみ移動禁止",
+    "次の1試合、フラッシュライト・投擲物の使用禁止",
+    "次の1試合、通話なしの無言プレイ",
+    "次の1試合、救助後は必ずその場でボディブロックする",
+    "次の1試合、キラーとチェイスになったら初回接触で自ら地面に伏せる",
+  ];
+  await db.insert(plans).values({
+    slug: "devotion-point-roulette",
+    title: "献身ポイント・ロシアンルーレット",
+    description:
+      "見捨て・放置などのペナルティ行動をするたびに献身ポイントが貯まり、一定数溜まるごとにランダムなハンデが発動。発動したハンデはリセットするまでずっと有効",
+    type: "escalation",
+    target: "both",
+    poolConfig: { customPool: devotionRules, threshold: 3 },
+    inputFields: [],
+    outputDisplay: { layout: "escalation_list", shareable: false, ogpTemplate: "default" },
+    stateModel: "cross_stream_persistent",
+    progressConfig: { goal: "pool_exhausted", resetCondition: "manual" },
+    isPublished: true,
+    sortOrder: 10,
+  }).onConflictDoUpdate({
+    target: plans.slug,
+    set: {
+      title: "献身ポイント・ロシアンルーレット",
+      description:
+        "見捨て・放置などのペナルティ行動をするたびに献身ポイントが貯まり、一定数溜まるごとにランダムなハンデが発動。発動したハンデはリセットするまでずっと有効",
+      poolConfig: { customPool: devotionRules, threshold: 3 },
+      sortOrder: 10,
+    },
+  });
+
+  console.log("plans: 献身ポイント・ロシアンルーレット 投入完了");
 }
 
 main()

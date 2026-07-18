@@ -12,6 +12,8 @@ import { TrackingTool } from "@/components/tools/tracking-tool";
 import { RoleplayTool } from "@/components/tools/roleplay-tool";
 import { DataAccumulationTool } from "@/components/tools/data-accumulation-tool";
 import { RandomSelectTool } from "@/components/tools/random-select-tool";
+import { TargetPickTool } from "@/components/tools/target-pick-tool";
+import { EscalationTool } from "@/components/tools/escalation-tool";
 import { SharePageButton } from "@/components/share-page-button";
 
 export default async function PlanDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -69,6 +71,12 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
       {plan.type === "data_accumulation" && (
         <DataAccumulationLoader planId={plan.id} slug={plan.slug} pool={pool} />
       )}
+
+      {plan.type === "target_pick" && <TargetPickTool plan={{ slug: plan.slug }} />}
+
+      {plan.type === "escalation" && (
+        <EscalationLoader planId={plan.id} slug={plan.slug} pool={pool} />
+      )}
       {/* draft / betting 等の残りのタイプはPhase5で追加 */}
     </main>
   );
@@ -105,6 +113,30 @@ async function RandomSelectLoader() {
       survivors={survivors}
       killerPerks={killerPerks}
       survivorPerks={survivorPerks}
+    />
+  );
+}
+
+async function EscalationLoader({
+  planId,
+  slug,
+  pool,
+}: {
+  planId: string;
+  slug: string;
+  pool: { customPool?: string[]; threshold?: number };
+}) {
+  const identityId = await getCurrentIdentityId();
+  const progress = identityId ? await getProgress(planId, identityId) : null;
+  const payload = (progress?.progressPayload as { points?: number; triggeredIndices?: number[] }) ?? {};
+
+  return (
+    <EscalationTool
+      plan={{ slug }}
+      rulePool={pool?.customPool ?? []}
+      threshold={pool?.threshold ?? 3}
+      initialPoints={payload.points ?? 0}
+      initialTriggeredIndices={payload.triggeredIndices ?? []}
     />
   );
 }

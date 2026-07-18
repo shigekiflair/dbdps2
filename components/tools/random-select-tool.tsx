@@ -708,7 +708,7 @@ export function RandomSelectTool({
                   const spinning = isPending && !locked;
                   return (
                     <button
-                      key={i}
+                      key={`${i}-${perk?.id ?? "empty"}`}
                       onClick={() => perk && toggleLockPerk(index, perk.id)}
                       className={`rounded-lg border p-3 text-center ${
                         locked ? "border-blood" : "border-[#2C2C2A]"

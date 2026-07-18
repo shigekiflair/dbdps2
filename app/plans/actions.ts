@@ -88,6 +88,14 @@ export async function savePlanProgress(slug: string, checkedItems: string[]) {
   await upsertProgress(plan.id, identityId, { checkedItems });
 }
 
+/** checkedItems以外の任意の進捗ペイロードを保存する汎用版（エスカレーション型など） */
+export async function savePlanProgressPayload(slug: string, payload: Record<string, unknown>) {
+  const plan = await getPlanBySlug(slug);
+  if (!plan) throw new Error("plan not found");
+  const identityId = await ensureCurrentIdentityId();
+  await upsertProgress(plan.id, identityId, payload);
+}
+
 export async function saveRecordValue(slug: string, records: Record<string, number>) {
   const plan = await getPlanBySlug(slug);
   if (!plan) throw new Error("plan not found");
