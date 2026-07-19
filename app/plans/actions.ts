@@ -34,11 +34,16 @@ export async function drawBuildSlot(
     perkCount: number;
     excludePerkIds?: string[];
     excludeCharacterIds?: string[];
-    // キラーのアドオン抽選（サバイバー側は今回未対応。needCharacter=falseの行を
-    // 再抽選する際は、既に確定しているキラーIDをcurrentKillerIdで渡す）
+    // キラーのアドオン抽選（killerIdに紐づく）
     addonCount?: number;
     excludeAddonIds?: string[];
     currentKillerId?: string;
+    // サバイバーのアイテム+アイテム用アドオン抽選
+    needItem?: boolean;
+    excludeItemIds?: string[];
+    itemAddonCount?: number;
+    excludeItemAddonIds?: string[];
+    currentItemId?: string;
   }
 ) {
   const character = opts.needCharacter
@@ -62,7 +67,21 @@ export async function drawBuildSlot(
         )
       : [];
 
-  return { character, perks, addons };
+  const item =
+    role === "survivor" && opts.needItem
+      ? (await drawFromPool({ source: "item", count: 1 }, { excludeIds: opts.excludeItemIds }))[0] ?? null
+      : null;
+
+  const itemId = item?.id ?? (opts.needItem ? null : opts.currentItemId ?? null);
+  const itemAddons =
+    role === "survivor" && itemId && (opts.itemAddonCount ?? 0) > 0
+      ? await drawFromPool(
+          { source: "addon", count: opts.itemAddonCount },
+          { itemId, excludeIds: opts.excludeItemAddonIds }
+        )
+      : [];
+
+  return { character, perks, addons, item, itemAddons };
 }
 
 /** 詳細ルール設定の「禁止アドオン」選択肢を作るため、指定キラーの全アドオンを取得する */

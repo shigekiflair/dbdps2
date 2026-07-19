@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { characters, perks } from "@/db/schema";
+import { characters, perks, items } from "@/db/schema";
 import { getPlanBySlug } from "@/lib/plans";
 import { planTypeBadge } from "@/lib/plan-ui";
 import { getCurrentIdentityId } from "@/lib/identity";
@@ -9,6 +9,7 @@ import { getProgress } from "@/lib/progress";
 import { LotteryTool } from "@/components/tools/lottery-tool";
 import { ChainTool } from "@/components/tools/chain-tool";
 import { TrackingTool } from "@/components/tools/tracking-tool";
+import { PerkConquestTool } from "@/components/tools/perk-conquest-tool";
 import { RoleplayTool } from "@/components/tools/roleplay-tool";
 import { DataAccumulationTool } from "@/components/tools/data-accumulation-tool";
 import { RandomSelectTool } from "@/components/tools/random-select-tool";
@@ -62,7 +63,10 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
 
       {plan.type === "chain" && <ChainTool missions={pool?.customPool ?? []} />}
 
-      {plan.type === "tracking" && (
+      {plan.type === "tracking" && pool?.mode === "gacha" && (
+        <PerkConquestLoader planId={plan.id} slug={plan.slug} pool={pool} />
+      )}
+      {plan.type === "tracking" && pool?.mode !== "gacha" && (
         <TrackingToolLoader planId={plan.id} slug={plan.slug} pool={pool} />
       )}
 
@@ -100,11 +104,12 @@ async function DataAccumulationLoader({
 }
 
 async function RandomSelectLoader() {
-  const [killers, survivors, killerPerks, survivorPerks] = await Promise.all([
+  const [killers, survivors, killerPerks, survivorPerks, itemList] = await Promise.all([
     db.select({ id: characters.id, name: characters.name }).from(characters).where(eq(characters.role, "killer")),
     db.select({ id: characters.id, name: characters.name }).from(characters).where(eq(characters.role, "survivor")),
     db.select({ id: perks.id, name: perks.name }).from(perks).where(eq(perks.role, "killer")),
     db.select({ id: perks.id, name: perks.name }).from(perks).where(eq(perks.role, "survivor")),
+    db.select({ id: items.id, name: items.name }).from(items),
   ]);
 
   return (
@@ -113,6 +118,7 @@ async function RandomSelectLoader() {
       survivors={survivors}
       killerPerks={killerPerks}
       survivorPerks={survivorPerks}
+      itemList={itemList}
     />
   );
 }
@@ -139,6 +145,31 @@ async function EscalationLoader({
       initialTriggeredIndices={payload.triggeredIndices ?? []}
     />
   );
+}
+
+async function PerkConquestLoader({
+  planId,
+  slug,
+  pool,
+}: {
+  planId: string;
+  slug: string;
+  pool: { source?: string; role?: "survivor" | "killer" };
+}) {
+  let items: { id: string; name: string }[] = [];
+
+  if (pool?.source === "perk" && pool.role) {
+    items = await db
+      .select({ id: perks.id, name: perks.name })
+      .from(perks)
+      .where(eq(perks.role, pool.role));
+  }
+
+  const identityId = await getCurrentIdentityId();
+  const progress = identityId ? await getProgress(planId, identityId) : null;
+  const initialChecked = ((progress?.progressPayload as any)?.checkedItems as string[]) ?? [];
+
+  return <PerkConquestTool plan={{ slug }} items={items} initialChecked={initialChecked} />;
 }
 
 async function TrackingToolLoader({

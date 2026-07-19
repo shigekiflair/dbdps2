@@ -1,9 +1,9 @@
 import { db } from "@/db";
-import { perks, taggables, tags, characters, addons as addonsTable } from "@/db/schema";
+import { perks, taggables, tags, characters, addons as addonsTable, items as itemsTable } from "@/db/schema";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 
 type PoolConfig = {
-  source: "perk" | "killer" | "survivor" | "addon" | "offering" | "map" | "custom_text";
+  source: "perk" | "killer" | "survivor" | "addon" | "item" | "offering" | "map" | "custom_text";
   filterTags?: string[];
   excludeTags?: string[];
   count?: number | null;
@@ -28,6 +28,15 @@ export async function drawFromPool(pool: PoolConfig, opts: DrawOptions = {}) {
     const whereClauses = [eq(characters.role, pool.source)];
     if (opts.excludeIds?.length) whereClauses.push(notInArray(characters.id, opts.excludeIds));
     const rows = await db.select().from(characters).where(and(...whereClauses));
+    return shuffle(rows).slice(0, pool.count ?? 1);
+  }
+
+  if (pool.source === "item") {
+    const whereClauses = [];
+    if (opts.excludeIds?.length) whereClauses.push(notInArray(itemsTable.id, opts.excludeIds));
+    const rows = whereClauses.length
+      ? await db.select().from(itemsTable).where(and(...whereClauses))
+      : await db.select().from(itemsTable);
     return shuffle(rows).slice(0, pool.count ?? 1);
   }
 

@@ -741,6 +741,23 @@ npm run db:import-csv
 
 **残っている未実装候補**：ドラフト型・予想型（Phase5）、パーク奪取カスタム（エスカレーション型のもう1案）、視聴者による肉壁指名ガチャ（ターゲット指定型のもう1案）
 
+## 0-42. サバイバー側アイテム抽選 + 全パーク制覇チャレンジのガチャ化
+
+**サバイバー側のアイテム抽選を実装**（`random-select-tool.tsx`を拡張、新規ファイルなし）
+- `lib/draw.ts`に`pool.source: "item"`を追加（`items`テーブルからランダム抽選、`db/schema.ts`のexport名は`items`なので`draw.ts`側は`items as itemsTable`でエイリアスして既存の`custom_text`分岐の変数名`items`と衝突しないようにした）
+- `drawBuildSlot`にサバイバー用の`needItem`/`excludeItemIds`/`itemAddonCount`/`excludeItemAddonIds`/`currentItemId`を追加。killerのアドオン（`killerId`紐づけ）と全く同じ形で、item（`itemId`紐づけ）のアドオンを抽選する
+- UIはキラー行の「アドオン2枠」と対になる形で、サバイバー行に「アイテム1枠＋アイテムアドオン2枠」を追加。アドオンカードのJSX（レアリティカラー・スロット演出・ウルトラレア演出）は`AddonCard`という共通コンポーネントに切り出し、キラーアドオン・アイテムアドオンの両方で使い回している（コード重複を回避）
+- アイテムも「指定する」プルダウンで固定可能（`pinItem`）。キャラクター選択とは独立して扱う（サバイバーのキャラと持ち込みアイテムは本来無関係なため）
+- **スコープ外にしたもの**：禁止アイテムアドオン機能・アイテムアドオンの使用上限（キラーアドオン側にある「詳細ルール設定」の禁止/上限機能はアイテムアドオンには今回適用していない。必要になれば`computeExcludedItemAddonIds`を追加する形で同じパターンを踏襲できる）
+
+**全パーク制覇チャレンジをガチャ形式に変更**（新規`components/tools/perk-conquest-tool.tsx`）
+- 既存の`all-survivor-perks-challenge`/`all-killer-perks-challenge`（`type: "tracking"`）はそのまま維持しつつ、`poolConfig.mode: "gacha"`というマーカーを追加し、`app/plans/[slug]/page.tsx`側で`pool?.mode === "gacha"`のときだけ新しい`PerkConquestTool`（ガチャ版）を、それ以外は従来の`TrackingTool`（手動チェックリスト版）を出し分けるようにした（`plan.type`自体は変更していないので、DBスキーマや既存のバッジ表示ロジックへの影響はゼロ）
+- 「未使用のパークを1つ引く」ボタンで、まだチェックされていないパークからランダムに1つ抽選 → スロット演出（`tf-card-spinning`/`tf-card-settle`を流用）→ 自動でチェック済みに追加、`plan_progress`に保存
+- 下部には全パークの一覧を引き続き表示し、記録漏れがあれば手動タップでも修正可能（ガチャ一本槍にせず、既存の手動チェック機能も残す形にした）
+- 全て引き終えると「🎉 全パーク制覇達成！」の表示に切り替わる
+
+**残タスク**：`npm run db:seed`で2つの企画のpoolConfig更新（`mode: "gacha"`追加）を反映する必要がある（`onConflictDoUpdate`で上書きされる想定）
+
 **追記24（グッドガイを完全収録、40キラー完全収録）**：グッドガイ（チャッキー、20個）を実データで追加。合計831行、バリデーションエラー0件。
 
 - **完全収録・実データ確認済み（40キラー）**：残り3キラー以外の全キラー

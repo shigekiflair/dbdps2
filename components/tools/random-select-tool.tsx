@@ -7,15 +7,20 @@ import { RARITY_STYLE, type Rarity } from "@/lib/rarity-colors";
 type CharacterResult = { id: string; name: string; iconUrl: string | null };
 type PerkResult = { id: string; name: string; iconUrl: string | null };
 type AddonResult = { id: string; name: string; iconUrl: string | null; rarity?: Rarity };
+type ItemResult = { id: string; name: string; iconUrl: string | null };
 type NameOption = { id: string; name: string };
 
 type Row = {
   character: CharacterResult | null;
   perks: PerkResult[];
   addons: AddonResult[];
+  item: ItemResult | null;
+  itemAddons: AddonResult[];
   lockedChar: boolean;
   lockedPerkIds: Set<string>;
   lockedAddonIds: Set<string>;
+  lockedItem: boolean;
+  lockedItemAddonIds: Set<string>;
   hasDrawn: boolean;
   shareCode: string | null;
 };
@@ -27,15 +32,20 @@ function emptyRow(): Row {
     character: null,
     perks: [],
     addons: [],
+    item: null,
+    itemAddons: [],
     lockedChar: false,
     lockedPerkIds: new Set(),
     lockedAddonIds: new Set(),
+    lockedItem: false,
+    lockedItemAddonIds: new Set(),
     hasDrawn: false,
     shareCode: null,
   };
 }
 
 const ADDON_COUNT = 2;
+const ITEM_ADDON_COUNT = 2;
 
 function pillClass(active: boolean) {
   return `rounded-full px-3 py-1.5 text-[11px] ${
@@ -45,16 +55,63 @@ function pillClass(active: boolean) {
 
 const LIMIT_OPTIONS: (number | null)[] = [null, 1, 2, 3];
 
+function AddonCard({
+  addon,
+  locked,
+  spinning,
+  onToggle,
+}: {
+  addon: AddonResult | undefined;
+  locked: boolean;
+  spinning: boolean;
+  onToggle: () => void;
+}) {
+  const rarity = addon?.rarity;
+  const style = rarity ? RARITY_STYLE[rarity] : null;
+  const isUltra = !!style && rarity === "ultra_rare" && !spinning;
+  const settleClass = spinning ? "tf-card-spinning" : isUltra ? "tf-ultra-rare" : "tf-card-settle";
+  return (
+    <button
+      onClick={onToggle}
+      style={style && !spinning ? { background: style.bg, borderColor: style.border } : undefined}
+      className={`rounded-lg border p-3 text-center transition-colors ${style ? "" : "bg-ash2"} ${
+        locked && !style ? "border-blood" : !style ? "border-[#2C2C2A]" : ""
+      } ${settleClass}`}
+    >
+      {isUltra &&
+        Array.from({ length: 8 }).map((_, s) => (
+          <span key={s} className="tf-spark" style={{ "--spark-angle": `${s * 45}deg` } as CSSProperties} />
+        ))}
+      <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
+      {style && !spinning && (
+        <p className="mb-1 text-[9px] uppercase tracking-wide" style={{ color: style.labelText }}>
+          {style.label}
+        </p>
+      )}
+      <p className="text-[11px]" style={style && !spinning ? { color: style.text } : undefined}>
+        {spinning ? "…" : addon?.name ?? "?"}
+      </p>
+      {locked && (
+        <p className="mt-1 text-[10px]" style={style ? { color: style.labelText } : undefined}>
+          固定中
+        </p>
+      )}
+    </button>
+  );
+}
+
 export function RandomSelectTool({
   killers,
   survivors,
   killerPerks,
   survivorPerks,
+  itemList,
 }: {
   killers: NameOption[];
   survivors: NameOption[];
   killerPerks: NameOption[];
   survivorPerks: NameOption[];
+  itemList: NameOption[];
 }) {
   const [role, setRole] = useState<"survivor" | "killer">("survivor");
   const [count, setCount] = useState(1);
@@ -193,7 +250,12 @@ export function RandomSelectTool({
     return Array.from(excluded);
   }
 
-  function bumpUsageCounts(newCharacter: CharacterResult | null, newPerks: PerkResult[], newAddons: AddonResult[] = []) {
+  function bumpUsageCounts(
+    newCharacter: CharacterResult | null,
+    newPerks: PerkResult[],
+    newAddons: AddonResult[] = [],
+    newItemAddons: AddonResult[] = []
+  ) {
     if (newPerks.length > 0) {
       setPerkUsageCounts((prev) => {
         const next = { ...prev };
@@ -201,10 +263,10 @@ export function RandomSelectTool({
         return next;
       });
     }
-    if (newAddons.length > 0) {
+    if (newAddons.length > 0 || newItemAddons.length > 0) {
       setAddonUsageCounts((prev) => {
         const next = { ...prev };
-        for (const a of newAddons) next[a.id] = (next[a.id] ?? 0) + 1;
+        for (const a of [...newAddons, ...newItemAddons]) next[a.id] = (next[a.id] ?? 0) + 1;
         return next;
       });
     }
@@ -225,11 +287,19 @@ export function RandomSelectTool({
     const keptAddons = resetAll || needCharacter ? [] : row.addons.filter((a) => row.lockedAddonIds.has(a.id));
     const addonCount = role === "killer" ? ADDON_COUNT - keptAddons.length : 0;
 
+    // アイテムアドオンも同様にアイテムに紐づく
+    const needItem = role === "survivor" && (resetAll || !row.lockedItem);
+    const keptItemAddons =
+      resetAll || needItem ? [] : row.itemAddons.filter((a) => row.lockedItemAddonIds.has(a.id));
+    const itemAddonCount = role === "survivor" ? ITEM_ADDON_COUNT - keptItemAddons.length : 0;
+
     const otherCounts = tallyOtherRowsPerkCounts(index);
     const excludePerkIds = [...keptPerks.map((p) => p.id), ...computeExcludedPerkIds(otherCounts)];
     const excludeCharacterIds = computeExcludedCharacterIds();
     const excludeAddonIds = [...keptAddons.map((a) => a.id), ...computeExcludedAddonIds()];
+    const excludeItemAddonIds = keptItemAddons.map((a) => a.id);
     const currentKillerId = !needCharacter ? row.character?.id : undefined;
+    const currentItemId = role === "survivor" && !needItem ? row.item?.id : undefined;
 
     startTransition(async () => {
       const drawn = await drawBuildSlot(role, {
@@ -240,9 +310,15 @@ export function RandomSelectTool({
         addonCount,
         excludeAddonIds,
         currentKillerId,
+        needItem,
+        itemAddonCount,
+        excludeItemAddonIds,
+        currentItemId,
       });
       const finalCharacter = needCharacter ? drawn.character : row.character;
       const finalAddons = role === "killer" ? [...keptAddons, ...drawn.addons] : [];
+      const finalItem = role === "survivor" ? (needItem ? drawn.item : row.item) : null;
+      const finalItemAddons = role === "survivor" ? [...keptItemAddons, ...drawn.itemAddons] : [];
 
       setRows((prev) => {
         const next = [...prev];
@@ -250,9 +326,13 @@ export function RandomSelectTool({
           character: finalCharacter,
           perks: [...keptPerks, ...drawn.perks],
           addons: finalAddons,
+          item: finalItem,
+          itemAddons: finalItemAddons,
           lockedChar: resetAll ? false : row.lockedChar,
           lockedPerkIds: resetAll ? new Set() : row.lockedPerkIds,
           lockedAddonIds: resetAll || needCharacter ? new Set() : row.lockedAddonIds,
+          lockedItem: resetAll ? false : row.lockedItem,
+          lockedItemAddonIds: resetAll || needItem ? new Set() : row.lockedItemAddonIds,
           hasDrawn: true,
           shareCode: null,
         };
@@ -260,7 +340,7 @@ export function RandomSelectTool({
       });
 
       if (role === "killer" && finalCharacter) ensureAddonOptions(finalCharacter.id);
-      bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons);
+      bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons, drawn.itemAddons);
     });
   }
 
@@ -291,6 +371,15 @@ export function RandomSelectTool({
         const excludeAddonIds = [...keptAddons.map((a) => a.id), ...computeExcludedAddonIds()];
         const currentKillerId = !needCharacter ? row.character?.id : undefined;
 
+        const needItem = role === "survivor" && (resetAll || !row.hasDrawn || !row.lockedItem);
+        const keptItemAddons =
+          resetAll || !row.hasDrawn || needItem
+            ? []
+            : row.itemAddons.filter((a) => row.lockedItemAddonIds.has(a.id));
+        const itemAddonCount = role === "survivor" ? ITEM_ADDON_COUNT - keptItemAddons.length : 0;
+        const excludeItemAddonIds = keptItemAddons.map((a) => a.id);
+        const currentItemId = role === "survivor" && !needItem ? row.item?.id : undefined;
+
         const drawn = await drawBuildSlot(role, {
           needCharacter,
           perkCount,
@@ -299,16 +388,22 @@ export function RandomSelectTool({
           addonCount,
           excludeAddonIds,
           currentKillerId,
+          needItem,
+          itemAddonCount,
+          excludeItemAddonIds,
+          currentItemId,
         });
         const finalCharacter = needCharacter ? drawn.character : row.character;
         const finalPerks = [...keptPerks, ...drawn.perks];
         const finalAddons = role === "killer" ? [...keptAddons, ...drawn.addons] : [];
+        const finalItem = role === "survivor" ? (needItem ? drawn.item : row.item) : null;
+        const finalItemAddons = role === "survivor" ? [...keptItemAddons, ...drawn.itemAddons] : [];
 
         for (const p of drawn.perks) {
           batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
           perkUsageDelta[p.id] = (perkUsageDelta[p.id] ?? 0) + 1;
         }
-        for (const a of drawn.addons) {
+        for (const a of [...drawn.addons, ...drawn.itemAddons]) {
           addonUsageDelta[a.id] = (addonUsageDelta[a.id] ?? 0) + 1;
         }
         if (needCharacter && role === "killer" && finalCharacter) {
@@ -320,9 +415,13 @@ export function RandomSelectTool({
           character: finalCharacter,
           perks: finalPerks,
           addons: finalAddons,
+          item: finalItem,
+          itemAddons: finalItemAddons,
           lockedChar: resetAll || !row.hasDrawn ? false : row.lockedChar,
           lockedPerkIds: resetAll || !row.hasDrawn ? new Set() : row.lockedPerkIds,
           lockedAddonIds: resetAll || !row.hasDrawn || needCharacter ? new Set() : row.lockedAddonIds,
+          lockedItem: resetAll || !row.hasDrawn ? false : row.lockedItem,
+          lockedItemAddonIds: resetAll || !row.hasDrawn || needItem ? new Set() : row.lockedItemAddonIds,
           hasDrawn: true,
           shareCode: null,
         });
@@ -370,6 +469,23 @@ export function RandomSelectTool({
     bumpUsageCounts({ ...character, iconUrl: null }, []);
   }
 
+  function pinItem(index: number, itemId: string) {
+    const item = itemList.find((it) => it.id === itemId);
+    if (!item) return;
+    setRows((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        item: { ...item, iconUrl: null },
+        itemAddons: [],
+        lockedItem: true,
+        lockedItemAddonIds: new Set(),
+        hasDrawn: true,
+      };
+      return next;
+    });
+  }
+
   function toggleLockChar(index: number) {
     setRows((prev) => {
       const next = [...prev];
@@ -402,11 +518,33 @@ export function RandomSelectTool({
     });
   }
 
+  function toggleLockItem(index: number) {
+    setRows((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], lockedItem: !next[index].lockedItem };
+      return next;
+    });
+  }
+
+  function toggleLockItemAddon(index: number, addonId: string) {
+    setRows((prev) => {
+      const next = [...prev];
+      const row = next[index];
+      const lockedItemAddonIds = new Set(row.lockedItemAddonIds);
+      if (lockedItemAddonIds.has(addonId)) lockedItemAddonIds.delete(addonId);
+      else lockedItemAddonIds.add(addonId);
+      next[index] = { ...row, lockedItemAddonIds };
+      return next;
+    });
+  }
+
   function shareRow(index: number) {
     const row = rows[index];
     if (!row.character) return;
+    const extraAddons =
+      role === "killer" ? row.addons : [...(row.item ? [row.item] : []), ...row.itemAddons];
     startTransition(async () => {
-      const code = await shareBuildResult({ role, character: row.character, perks: row.perks, addons: row.addons });
+      const code = await shareBuildResult({ role, character: row.character, perks: row.perks, addons: extraAddons });
       setRows((prev) => {
         const next = [...prev];
         next[index] = { ...next[index], shareCode: code };
@@ -728,56 +866,65 @@ export function RandomSelectTool({
                 {Array.from({ length: ADDON_COUNT }).map((_, i) => {
                   const addon = row.addons[i];
                   const locked = !!addon && row.lockedAddonIds.has(addon.id);
-                  const rarity = addon?.rarity;
-                  const style = rarity ? RARITY_STYLE[rarity] : null;
-                  const spinning = isPending && !locked;
-                  const isUltra = !!style && rarity === "ultra_rare" && !spinning;
-                  const settleClass = spinning ? "tf-card-spinning" : isUltra ? "tf-ultra-rare" : "tf-card-settle";
                   return (
-                    <button
+                    <AddonCard
                       // addon.id を含めることで、毎回演出アニメーションが最初から再生される
                       key={`${i}-${addon?.id ?? "empty"}`}
-                      onClick={() => addon && toggleLockAddon(index, addon.id)}
-                      style={
-                        style && !spinning
-                          ? { background: style.bg, borderColor: style.border }
-                          : undefined
-                      }
-                      className={`rounded-lg border p-3 text-center transition-colors ${
-                        style ? "" : "bg-ash2"
-                      } ${locked && !style ? "border-blood" : !style ? "border-[#2C2C2A]" : ""} ${settleClass}`}
-                    >
-                      {isUltra &&
-                        Array.from({ length: 8 }).map((_, s) => (
-                          <span
-                            key={s}
-                            className="tf-spark"
-                            style={{ "--spark-angle": `${s * 45}deg` } as CSSProperties}
-                          />
-                        ))}
-                      <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                      {style && !spinning && (
-                        <p className="mb-1 text-[9px] uppercase tracking-wide" style={{ color: style.labelText }}>
-                          {style.label}
-                        </p>
-                      )}
-                      <p
-                        className="text-[11px]"
-                        style={style && !spinning ? { color: style.text } : undefined}
-                      >
-                        {spinning ? "…" : addon?.name ?? "?"}
-                      </p>
-                      {locked && (
-                        <p
-                          className="mt-1 text-[10px]"
-                          style={style ? { color: style.labelText } : undefined}
-                        >
-                          固定中
-                        </p>
-                      )}
-                    </button>
+                      addon={addon}
+                      locked={locked}
+                      spinning={isPending && !locked}
+                      onToggle={() => addon && toggleLockAddon(index, addon.id)}
+                    />
                   );
                 })}
+              </div>
+            )}
+
+            {role === "survivor" && (
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+                <div className="sm:w-32 sm:flex-shrink-0">
+                  <button
+                    onClick={() => row.item && toggleLockItem(index)}
+                    className={`w-full rounded-lg border p-3 text-center ${
+                      row.lockedItem ? "border-blood" : "border-[#2C2C2A]"
+                    } bg-ash2 ${isPending && !row.lockedItem ? "tf-card-spinning" : "tf-card-settle"}`}
+                  >
+                    <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
+                    <p className="text-[11px] text-bone">
+                      {isPending && !row.lockedItem ? "…" : row.item?.name ?? "?"}
+                    </p>
+                    {row.lockedItem && <p className="mt-1 text-[10px] text-blood">固定中</p>}
+                  </button>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) pinItem(index, e.target.value);
+                    }}
+                    className="mt-1 w-full rounded border border-[#2C2C2A] bg-ash2 px-1 py-1 text-[10px] text-bone-muted"
+                  >
+                    <option value="">アイテム指定...</option>
+                    {itemList.map((it) => (
+                      <option key={it.id} value={it.id}>
+                        {it.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid flex-1 grid-cols-2 gap-2">
+                  {Array.from({ length: ITEM_ADDON_COUNT }).map((_, i) => {
+                    const addon = row.itemAddons[i];
+                    const locked = !!addon && row.lockedItemAddonIds.has(addon.id);
+                    return (
+                      <AddonCard
+                        key={`${i}-${addon?.id ?? "empty"}`}
+                        addon={addon}
+                        locked={locked}
+                        spinning={isPending && !locked}
+                        onToggle={() => addon && toggleLockItemAddon(index, addon.id)}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             )}
 
