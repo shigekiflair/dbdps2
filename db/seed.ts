@@ -290,10 +290,19 @@ async function main() {
     slug: "first-down-bounty-target",
     title: "ファーストダウン最速ターゲット指名手配ガチャ",
     description:
-      "試合開始前にサバイバーを1人ランダムで指名。誰よりも早くその生存者をダウンさせられるか、OBS常時表示リンクで視聴者と一緒に見守る",
+      "試合開始前に「ロビー画面で右から何番目のサバイバー」かをランダムで指名。オンラインマッチだと実際に来る4人は分からないため、キャラクター名ではなく位置で指名する方式。誰よりも早くその位置の生存者をダウンさせられるか、OBS常時表示リンクで視聴者と一緒に見守る",
     type: "target_pick",
     target: "killer",
-    poolConfig: { source: "survivor", count: 1 },
+    poolConfig: {
+      source: "custom_text",
+      customPool: [
+        "ロビー画面で右から1番目に表示されているサバイバー",
+        "ロビー画面で右から2番目に表示されているサバイバー",
+        "ロビー画面で右から3番目に表示されているサバイバー",
+        "ロビー画面で右から4番目に表示されているサバイバー",
+      ],
+      count: 1,
+    },
     inputFields: [],
     outputDisplay: { layout: "target_card", shareable: true, ogpTemplate: "default" },
     stateModel: "stateless",
@@ -304,8 +313,17 @@ async function main() {
     set: {
       title: "ファーストダウン最速ターゲット指名手配ガチャ",
       description:
-        "試合開始前にサバイバーを1人ランダムで指名。誰よりも早くその生存者をダウンさせられるか、OBS常時表示リンクで視聴者と一緒に見守る",
-      poolConfig: { source: "survivor", count: 1 },
+        "試合開始前に「ロビー画面で右から何番目のサバイバー」かをランダムで指名。オンラインマッチだと実際に来る4人は分からないため、キャラクター名ではなく位置で指名する方式。誰よりも早くその位置の生存者をダウンさせられるか、OBS常時表示リンクで視聴者と一緒に見守る",
+      poolConfig: {
+        source: "custom_text",
+        customPool: [
+          "ロビー画面で右から1番目に表示されているサバイバー",
+          "ロビー画面で右から2番目に表示されているサバイバー",
+          "ロビー画面で右から3番目に表示されているサバイバー",
+          "ロビー画面で右から4番目に表示されているサバイバー",
+        ],
+        count: 1,
+      },
       sortOrder: 9,
     },
   });

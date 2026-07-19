@@ -3,10 +3,8 @@
 import { useState, useTransition } from "react";
 import { drawPlanResult, sharePlanResult } from "@/app/plans/actions";
 
-type Target = { id: string; name: string; iconUrl: string | null };
-
 export function TargetPickTool({ plan }: { plan: { slug: string } }) {
-  const [target, setTarget] = useState<Target | null>(null);
+  const [target, setTarget] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [shareCode, setShareCode] = useState<string | null>(null);
   const [copied, setCopied] = useState<"share" | "overlay" | null>(null);
@@ -14,8 +12,8 @@ export function TargetPickTool({ plan }: { plan: { slug: string } }) {
 
   function draw() {
     startTransition(async () => {
-      const result = await drawPlanResult(plan.slug, { count: 1 });
-      setTarget((result[0] as Target) ?? null);
+      const result = (await drawPlanResult(plan.slug, { count: 1 })) as string[];
+      setTarget(result[0] ?? null);
       setLocked(false);
       setShareCode(null);
     });
@@ -24,7 +22,7 @@ export function TargetPickTool({ plan }: { plan: { slug: string } }) {
   function lockIn() {
     if (!target) return;
     startTransition(async () => {
-      const code = await sharePlanResult(plan.slug, [target]);
+      const code = await sharePlanResult(plan.slug, [{ id: target, name: target, iconUrl: null }]);
       setShareCode(code);
       setLocked(true);
     });
@@ -51,13 +49,13 @@ export function TargetPickTool({ plan }: { plan: { slug: string } }) {
     <div>
       <div className="mb-4 flex justify-center">
         <div
-          key={target?.id ?? "empty"}
+          key={target ?? "empty"}
           className={`w-full max-w-xs rounded-lg border p-6 text-center ${
             locked ? "border-blood" : "border-[#2C2C2A]"
           } bg-ash2 ${spinning ? "tf-card-spinning" : "tf-card-settle"}`}
         >
           <div className="mx-auto mb-3 h-16 w-16 rounded bg-ash" />
-          <p className="text-sm text-bone">{spinning ? "…" : target?.name ?? "まだ指名していません"}</p>
+          <p className="text-sm text-bone">{spinning ? "…" : target ?? "まだ指名していません"}</p>
           {locked && <p className="mt-2 text-[10px] text-blood">指名確定・試合中はこのままロック</p>}
         </div>
       </div>

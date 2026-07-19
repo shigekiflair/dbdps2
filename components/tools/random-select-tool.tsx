@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type CSSProperties } from "react";
-import { drawBuildSlot, getKillerAddons, shareBuildResult } from "@/app/plans/actions";
+import { drawBuildSlot, getKillerAddons, shareBuildResult, savePlanProgressPayload } from "@/app/plans/actions";
 import { RARITY_STYLE, type Rarity } from "@/lib/rarity-colors";
 
 type CharacterResult = { id: string; name: string; iconUrl: string | null };
@@ -106,18 +106,23 @@ export function RandomSelectTool({
   killerPerks,
   survivorPerks,
   itemList,
+  conquest,
 }: {
   killers: NameOption[];
   survivors: NameOption[];
   killerPerks: NameOption[];
   survivorPerks: NameOption[];
   itemList: NameOption[];
+  /** 全パーク制覇チャレンジ用: 指定すると役割固定＋抽選したパークを自動で「使用済み」に登録する */
+  conquest?: { slug: string; role: "killer" | "survivor"; initialUsedIds: string[] };
 }) {
-  const [role, setRole] = useState<"survivor" | "killer">("survivor");
+  const [role, setRole] = useState<"survivor" | "killer">(conquest?.role ?? "survivor");
   const [count, setCount] = useState(1);
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [isPending, startTransition] = useTransition();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [conquestUsed, setConquestUsed] = useState<Set<string>>(new Set(conquest?.initialUsedIds ?? []));
+  const [conquestPanelOpen, setConquestPanelOpen] = useState(false);
 
   // --- 詳細ルール ------------------------------------------------
   const [perkUsageLimit, setPerkUsageLimit] = useState<number | null>(null);
@@ -219,6 +224,9 @@ export function RandomSelectTool({
 
   function computeExcludedPerkIds(baseCounts: Record<string, number>): string[] {
     const excluded = new Set<string>(bannedPerkIds);
+    if (conquest) {
+      for (const id of conquestUsed) excluded.add(id);
+    }
     if (role === "survivor") {
       for (const rule of perkCapRules) {
         const used = baseCounts[rule.perkId] ?? 0;
@@ -231,6 +239,16 @@ export function RandomSelectTool({
       }
     }
     return Array.from(excluded);
+  }
+
+  /** 制覇モード: 新しく引いたパークを「使用済み」として記録し、DBにも保存する */
+  function markConquestUsed(newPerks: PerkResult[]) {
+    if (!conquest || newPerks.length === 0) return;
+    const next = new Set(conquestUsed);
+    for (const p of newPerks) next.add(p.id);
+    if (next.size === conquestUsed.size) return; // 変化なし
+    setConquestUsed(next);
+    startTransition(() => savePlanProgressPayload(conquest.slug, { usedIds: Array.from(next) }));
   }
 
   function computeExcludedCharacterIds(): string[] {
@@ -341,6 +359,7 @@ export function RandomSelectTool({
 
       if (role === "killer" && finalCharacter) ensureAddonOptions(finalCharacter.id);
       bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons, drawn.itemAddons);
+      markConquestUsed(drawn.perks);
     });
   }
 
@@ -358,6 +377,7 @@ export function RandomSelectTool({
       const addonUsageDelta: Record<string, number> = {};
       let killerUsageDeltaId: string | null = null;
       const killersToLoad = new Set<string>();
+      const allDrawnPerks: PerkResult[] = [];
 
       for (const row of rows) {
         const needCharacter = resetAll || !row.hasDrawn || !row.lockedChar;
@@ -402,6 +422,7 @@ export function RandomSelectTool({
         for (const p of drawn.perks) {
           batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
           perkUsageDelta[p.id] = (perkUsageDelta[p.id] ?? 0) + 1;
+          allDrawnPerks.push(p);
         }
         for (const a of [...drawn.addons, ...drawn.itemAddons]) {
           addonUsageDelta[a.id] = (addonUsageDelta[a.id] ?? 0) + 1;
@@ -428,6 +449,7 @@ export function RandomSelectTool({
       }
 
       setRows(newRows);
+      markConquestUsed(allDrawnPerks);
       for (const killerId of killersToLoad) ensureAddonOptions(killerId);
       if (Object.keys(perkUsageDelta).length > 0) {
         setPerkUsageCounts((prev) => {
@@ -564,13 +586,66 @@ export function RandomSelectTool({
 
   return (
     <div>
-      <div className="mb-3 flex gap-2">
-        {(["survivor", "killer"] as const).map((r) => (
-          <button key={r} onClick={() => selectRole(r)} className={pillClass(role === r)}>
-            {r === "survivor" ? "サバイバー" : "キラー"}
-          </button>
-        ))}
-      </div>
+      {conquest && (
+        <div className="mb-4 rounded-lg border border-[#2C2C2A] bg-ash2 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={() => setConquestPanelOpen((v) => !v)}
+              className="flex flex-1 items-center justify-between text-left"
+            >
+              <span className="text-xs text-bone">
+                使用済みパーク一覧（{conquestUsed.size} / {perkList.length}）
+                {conquestUsed.size >= perkList.length && perkList.length > 0 && " — 🎉 全パーク制覇達成！"}
+              </span>
+              <span className="text-[11px] text-bone-muted">{conquestPanelOpen ? "閉じる ▲" : "開く ▼"}</span>
+            </button>
+            <button
+              onClick={() => {
+                if (conquestUsed.size === 0) return;
+                if (!window.confirm("使用済みパークの記録をすべてリセットします。よろしいですか？")) return;
+                setConquestUsed(new Set());
+                startTransition(() => savePlanProgressPayload(conquest.slug, { usedIds: [] }));
+              }}
+              className="shrink-0 text-[11px] text-bone-muted underline"
+            >
+              リセット
+            </button>
+          </div>
+          <div className="mt-2 h-2 rounded-full bg-ash">
+            <div
+              className="h-2 rounded-full bg-blood transition-all"
+              style={{ width: `${perkList.length ? (conquestUsed.size / perkList.length) * 100 : 0}%` }}
+            />
+          </div>
+          {conquestPanelOpen && (
+            <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {perkList.map((p) => (
+                <div
+                  key={p.id}
+                  className={`rounded border p-2 text-[11px] ${
+                    conquestUsed.has(p.id)
+                      ? "border-blood bg-blood-dark text-[#F5C4B3]"
+                      : "border-[#2C2C2A] bg-ash text-bone-muted"
+                  }`}
+                >
+                  {conquestUsed.has(p.id) ? "✓ " : ""}
+                  {p.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!conquest && (
+        <div className="mb-3 flex gap-2">
+          {(["survivor", "killer"] as const).map((r) => (
+            <button key={r} onClick={() => selectRole(r)} className={pillClass(role === r)}>
+              {r === "survivor" ? "サバイバー" : "キラー"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {role === "survivor" && (
         <div className="mb-4 flex gap-2">

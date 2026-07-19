@@ -9,7 +9,6 @@ import { getProgress } from "@/lib/progress";
 import { LotteryTool } from "@/components/tools/lottery-tool";
 import { ChainTool } from "@/components/tools/chain-tool";
 import { TrackingTool } from "@/components/tools/tracking-tool";
-import { PerkConquestTool } from "@/components/tools/perk-conquest-tool";
 import { RoleplayTool } from "@/components/tools/roleplay-tool";
 import { DataAccumulationTool } from "@/components/tools/data-accumulation-tool";
 import { RandomSelectTool } from "@/components/tools/random-select-tool";
@@ -154,22 +153,31 @@ async function PerkConquestLoader({
 }: {
   planId: string;
   slug: string;
-  pool: { source?: string; role?: "survivor" | "killer" };
+  pool: { role?: "survivor" | "killer" };
 }) {
-  let items: { id: string; name: string }[] = [];
-
-  if (pool?.source === "perk" && pool.role) {
-    items = await db
-      .select({ id: perks.id, name: perks.name })
-      .from(perks)
-      .where(eq(perks.role, pool.role));
-  }
+  const conquestRole = pool?.role ?? "survivor";
+  const [killers, survivors, killerPerks, survivorPerks, itemList] = await Promise.all([
+    db.select({ id: characters.id, name: characters.name }).from(characters).where(eq(characters.role, "killer")),
+    db.select({ id: characters.id, name: characters.name }).from(characters).where(eq(characters.role, "survivor")),
+    db.select({ id: perks.id, name: perks.name }).from(perks).where(eq(perks.role, "killer")),
+    db.select({ id: perks.id, name: perks.name }).from(perks).where(eq(perks.role, "survivor")),
+    db.select({ id: items.id, name: items.name }).from(items),
+  ]);
 
   const identityId = await getCurrentIdentityId();
   const progress = identityId ? await getProgress(planId, identityId) : null;
-  const initialChecked = ((progress?.progressPayload as any)?.checkedItems as string[]) ?? [];
+  const initialUsedIds = ((progress?.progressPayload as any)?.usedIds as string[]) ?? [];
 
-  return <PerkConquestTool plan={{ slug }} items={items} initialChecked={initialChecked} />;
+  return (
+    <RandomSelectTool
+      killers={killers}
+      survivors={survivors}
+      killerPerks={killerPerks}
+      survivorPerks={survivorPerks}
+      itemList={itemList}
+      conquest={{ slug, role: conquestRole, initialUsedIds }}
+    />
+  );
 }
 
 async function TrackingToolLoader({
