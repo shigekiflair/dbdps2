@@ -38,7 +38,15 @@ async function importCharacters() {
         chapter: row.chapter || null,
         iconUrl: row.icon_url || null,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: characters.slug,
+        set: {
+          name: row.name,
+          role: row.role as "killer" | "survivor",
+          chapter: row.chapter || null,
+          iconUrl: row.icon_url || null,
+        },
+      });
   }
   console.log(`characters: ${rows.length}件 処理`);
 }
@@ -79,11 +87,19 @@ async function importPerks() {
         originCharacterId: originCharacterId ?? null,
         iconUrl: row.icon_url || null,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: perks.slug,
+        set: {
+          name: row.name,
+          description: row.description_summary || null,
+          role: row.role as "killer" | "survivor",
+          originCharacterId: originCharacterId ?? null,
+          iconUrl: row.icon_url || null,
+        },
+      })
       .returning({ id: perks.id, slug: perks.slug });
 
-    // onConflictDoNothingで既存行がスキップされた場合はinsertedが空になるため
-    // 既存perkのidを取得し直してからタグを紐付ける
+    // onConflictDoUpdateなので基本的にinsertedは必ず入るが、念のためフォールバックも残す
     const perkId =
       inserted?.id ??
       (await db.select({ id: perks.id }).from(perks).where(eq(perks.slug, row.slug)))[0]?.id;
@@ -121,7 +137,10 @@ async function importItems() {
         name: row.name,
         iconUrl: row.icon_url || null,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: items.slug,
+        set: { name: row.name, iconUrl: row.icon_url || null },
+      });
   }
   console.log(`items: ${rows.length}件 処理`);
 }
@@ -192,7 +211,17 @@ async function importAddons() {
         itemId,
         iconUrl: row.icon_url || null,
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: addons.slug,
+        set: {
+          name: row.name,
+          description: row.description_summary || null,
+          rarity: row.rarity as (typeof rarityEnum.enumValues)[number],
+          killerId,
+          itemId,
+          iconUrl: row.icon_url || null,
+        },
+      });
   }
   console.log(`addons: ${rows.length}件中 ${rows.length - skipped}件 処理（${skipped}件スキップ）`);
 }
