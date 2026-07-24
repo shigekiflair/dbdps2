@@ -18,6 +18,30 @@ type DrawOptions = {
   itemId?: string; // pool.source: "addon" でアイテム(医療キット等)アドオンに絞り込む場合に指定
 };
 
+// pool.source ごとに戻り値の型を絞り込むためのオーバーロード。
+// これが無いと呼び出し側で「string | オブジェクト」の合併型になり、
+// character?.id のようなプロパティアクセスで型エラーになる。
+export function drawFromPool(
+  pool: PoolConfig & { source: "custom_text" },
+  opts?: DrawOptions
+): Promise<string[]>;
+export function drawFromPool(
+  pool: PoolConfig & { source: "killer" | "survivor" },
+  opts?: DrawOptions
+): Promise<(typeof characters.$inferSelect)[]>;
+export function drawFromPool(
+  pool: PoolConfig & { source: "item" },
+  opts?: DrawOptions
+): Promise<(typeof itemsTable.$inferSelect)[]>;
+export function drawFromPool(
+  pool: PoolConfig & { source: "addon" },
+  opts?: DrawOptions
+): Promise<(typeof addonsTable.$inferSelect)[]>;
+export function drawFromPool(
+  pool: PoolConfig & { source: "perk" },
+  opts?: DrawOptions
+): Promise<(typeof perks.$inferSelect)[]>;
+export function drawFromPool(pool: PoolConfig, opts?: DrawOptions): Promise<unknown[]>;
 export async function drawFromPool(pool: PoolConfig, opts: DrawOptions = {}) {
   if (pool.source === "custom_text") {
     const items = (pool.customPool ?? []).filter((_, i) => !opts.excludeIds?.includes(String(i)));
