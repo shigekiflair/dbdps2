@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useTransition, type CSSProperties } from "react";
-import { drawBuildSlot, getKillerAddons, shareBuildResult, savePlanProgressPayload } from "@/app/plans/actions";
+import {
+  drawBuildSlot,
+  getKillerAddons,
+  getItemAddons,
+  shareBuildResult,
+  savePlanProgressPayload,
+} from "@/app/plans/actions";
 import { RARITY_STYLE, type Rarity } from "@/lib/rarity-colors";
 
 type CharacterResult = { id: string; name: string; iconUrl: string | null };
@@ -119,21 +125,37 @@ export function RandomSelectTool({
   const [role, setRole] = useState<"survivor" | "killer">(conquest?.role ?? "survivor");
   const [count, setCount] = useState(1);
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  // 行ごとの「抽選中」状態。useTransitionのisPendingはコンポーネント全体で1つしか無く、
+  // 1行だけ回しても無関係な行のカードまで一緒にスピン演出してしまうため、
+  // 行番号単位で管理する（自己レビュー指摘#2への対応）。
+  const [pendingRows, setPendingRows] = useState<Set<number>>(new Set());
+  const anyPending = pendingRows.size > 0;
+  // 抽選失敗時にユーザーへ知らせるためのエラーメッセージ（自己レビュー指摘#1への対応）
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [conquestUsed, setConquestUsed] = useState<Set<string>>(new Set(conquest?.initialUsedIds ?? []));
   const [conquestPanelOpen, setConquestPanelOpen] = useState(false);
+  // 低確率の特殊演出（停電）が発生した行番号。演出が終わるとnullに戻す
+  const [blackoutRow, setBlackoutRow] = useState<number | null>(null);
 
   // --- 詳細ルール ------------------------------------------------
   const [perkUsageLimit, setPerkUsageLimit] = useState<number | null>(null);
   const [killerUsageLimit, setKillerUsageLimit] = useState<number | null>(null);
   const [addonUsageLimit, setAddonUsageLimit] = useState<number | null>(null);
   const [bannedPerkIds, setBannedPerkIds] = useState<Set<string>>(new Set());
+  // アドオンの禁止リストはキラーのアドオン・サバイバーのアイテムアドオンで共有する
+  // （IDは常にaddonsテーブルの一意なUUIDなので、片方の禁止設定がもう片方に誤爆することはない）
   const [bannedAddonIds, setBannedAddonIds] = useState<Set<string>>(new Set());
   // 抽選・指定で登場したキラーのアドオン一覧をキラーIDごとにキャッシュする
   // （43体分を最初から全取得すると重いため、登場したキラーの分だけ遅延取得する）
   const [addonOptionsByKiller, setAddonOptionsByKiller] = useState<Record<string, NameOption[]>>({});
   const [addonKillerNames, setAddonKillerNames] = useState<Record<string, string>>({});
+  // アイテムは5種類しか無いため、アドオン一覧は登場したアイテムの分だけ遅延取得してキャッシュする
+  // （キラーのaddonOptionsByKillerと同じ考え方。自己レビュー指摘#4：キラー側にしか無かった
+  // 禁止アドオン機能をアイテムアドオン側にも対称に持たせるための追加）
+  const [addonOptionsByItem, setAddonOptionsByItem] = useState<Record<string, NameOption[]>>({});
+  const [addonItemNames, setAddonItemNames] = useState<Record<string, string>>({});
   const [perkCapRules, setPerkCapRules] = useState<PerkCapRule[]>([]);
   const [perkUsageCounts, setPerkUsageCounts] = useState<Record<string, number>>({});
   const [killerUsageCounts, setKillerUsageCounts] = useState<Record<string, number>>({});
@@ -187,6 +209,47 @@ export function RandomSelectTool({
       setAddonOptionsByKiller((prev) =>
         prev[killerId] ? prev : { ...prev, [killerId]: list.map((a) => ({ id: a.id, name: a.name })) }
       );
+    });
+  }
+
+  // アイテムは5種類しか無いので、キラーのensureAddonOptionsと全く同じ考え方で
+  // アイテムごとのアドオン一覧を遅延キャッシュする（自己レビュー指摘#4対応）
+  function ensureItemAddonOptions(itemId: string) {
+    const itemName = itemList.find((it) => it.id === itemId)?.name;
+    if (itemName) setAddonItemNames((prev) => (prev[itemId] ? prev : { ...prev, [itemId]: itemName }));
+    if (addonOptionsByItem[itemId]) return;
+    startTransition(async () => {
+      const list = await getItemAddons(itemId);
+      setAddonOptionsByItem((prev) =>
+        prev[itemId] ? prev : { ...prev, [itemId]: list.map((a) => ({ id: a.id, name: a.name })) }
+      );
+    });
+  }
+
+  // スマホの触覚フィードバック。iOS Safariは非対応のため、無ければ黙って何もしない
+  // （対応端末では気持ちよく、非対応でも見た目だけで成立するようにする）
+  function vibrate(pattern: number | number[]) {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        navigator.vibrate(pattern);
+      } catch {
+        // 一部ブラウザは呼び出し自体は許可するが失敗することがあるため握りつぶす
+      }
+    }
+  }
+
+  function markRowsPending(indices: number[]) {
+    setPendingRows((prev) => {
+      const next = new Set(prev);
+      for (const i of indices) next.add(i);
+      return next;
+    });
+  }
+  function clearRowsPending(indices: number[]) {
+    setPendingRows((prev) => {
+      const next = new Set(prev);
+      for (const i of indices) next.delete(i);
+      return next;
     });
   }
 
@@ -315,91 +378,15 @@ export function RandomSelectTool({
     const excludePerkIds = [...keptPerks.map((p) => p.id), ...computeExcludedPerkIds(otherCounts)];
     const excludeCharacterIds = computeExcludedCharacterIds();
     const excludeAddonIds = [...keptAddons.map((a) => a.id), ...computeExcludedAddonIds()];
-    const excludeItemAddonIds = keptItemAddons.map((a) => a.id);
+    const excludeItemAddonIds = [...keptItemAddons.map((a) => a.id), ...computeExcludedAddonIds()];
     const currentKillerId = !needCharacter ? row.character?.id : undefined;
     const currentItemId = role === "survivor" && !needItem ? row.item?.id : undefined;
 
+    setErrorMessage(null);
+    markRowsPending([index]);
+
     startTransition(async () => {
-      const drawn = await drawBuildSlot(role, {
-        needCharacter,
-        perkCount,
-        excludePerkIds,
-        excludeCharacterIds,
-        addonCount,
-        excludeAddonIds,
-        currentKillerId,
-        needItem,
-        itemAddonCount,
-        excludeItemAddonIds,
-        currentItemId,
-      });
-      const finalCharacter = needCharacter ? drawn.character : row.character;
-      const finalAddons = role === "killer" ? [...keptAddons, ...drawn.addons] : [];
-      const finalItem = role === "survivor" ? (needItem ? drawn.item : row.item) : null;
-      const finalItemAddons = role === "survivor" ? [...keptItemAddons, ...drawn.itemAddons] : [];
-
-      setRows((prev) => {
-        const next = [...prev];
-        next[index] = {
-          character: finalCharacter,
-          perks: [...keptPerks, ...drawn.perks],
-          addons: finalAddons,
-          item: finalItem,
-          itemAddons: finalItemAddons,
-          lockedChar: resetAll ? false : row.lockedChar,
-          lockedPerkIds: resetAll ? new Set() : row.lockedPerkIds,
-          lockedAddonIds: resetAll || needCharacter ? new Set() : row.lockedAddonIds,
-          lockedItem: resetAll ? false : row.lockedItem,
-          lockedItemAddonIds: resetAll || needItem ? new Set() : row.lockedItemAddonIds,
-          hasDrawn: true,
-          shareCode: null,
-        };
-        return next;
-      });
-
-      if (role === "killer" && finalCharacter) ensureAddonOptions(finalCharacter.id);
-      bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons, drawn.itemAddons);
-      markConquestUsed(drawn.perks);
-    });
-  }
-
-  function drawAllRows(resetAll: boolean) {
-    startTransition(async () => {
-      const batchPerkCounts: Record<string, number> = {};
-      for (const row of rows) {
-        const kept = resetAll || !row.hasDrawn ? [] : row.perks.filter((p) => row.lockedPerkIds.has(p.id));
-        for (const p of kept) batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
-      }
-      const excludeCharacterIds = computeExcludedCharacterIds();
-
-      const newRows: Row[] = [];
-      const perkUsageDelta: Record<string, number> = {};
-      const addonUsageDelta: Record<string, number> = {};
-      let killerUsageDeltaId: string | null = null;
-      const killersToLoad = new Set<string>();
-      const allDrawnPerks: PerkResult[] = [];
-
-      for (const row of rows) {
-        const needCharacter = resetAll || !row.hasDrawn || !row.lockedChar;
-        const keptPerks = resetAll || !row.hasDrawn ? [] : row.perks.filter((p) => row.lockedPerkIds.has(p.id));
-        const perkCount = 4 - keptPerks.length;
-        const excludePerkIds = [...keptPerks.map((p) => p.id), ...computeExcludedPerkIds(batchPerkCounts)];
-
-        const keptAddons =
-          resetAll || !row.hasDrawn || needCharacter ? [] : row.addons.filter((a) => row.lockedAddonIds.has(a.id));
-        const addonCount = role === "killer" ? ADDON_COUNT - keptAddons.length : 0;
-        const excludeAddonIds = [...keptAddons.map((a) => a.id), ...computeExcludedAddonIds()];
-        const currentKillerId = !needCharacter ? row.character?.id : undefined;
-
-        const needItem = role === "survivor" && (resetAll || !row.hasDrawn || !row.lockedItem);
-        const keptItemAddons =
-          resetAll || !row.hasDrawn || needItem
-            ? []
-            : row.itemAddons.filter((a) => row.lockedItemAddonIds.has(a.id));
-        const itemAddonCount = role === "survivor" ? ITEM_ADDON_COUNT - keptItemAddons.length : 0;
-        const excludeItemAddonIds = keptItemAddons.map((a) => a.id);
-        const currentItemId = role === "survivor" && !needItem ? row.item?.id : undefined;
-
+      try {
         const drawn = await drawBuildSlot(role, {
           needCharacter,
           perkCount,
@@ -414,60 +401,179 @@ export function RandomSelectTool({
           currentItemId,
         });
         const finalCharacter = needCharacter ? drawn.character : row.character;
-        const finalPerks = [...keptPerks, ...drawn.perks];
         const finalAddons = role === "killer" ? [...keptAddons, ...drawn.addons] : [];
         const finalItem = role === "survivor" ? (needItem ? drawn.item : row.item) : null;
         const finalItemAddons = role === "survivor" ? [...keptItemAddons, ...drawn.itemAddons] : [];
 
-        for (const p of drawn.perks) {
-          batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
-          perkUsageDelta[p.id] = (perkUsageDelta[p.id] ?? 0) + 1;
-          allDrawnPerks.push(p);
-        }
-        for (const a of [...drawn.addons, ...drawn.itemAddons]) {
-          addonUsageDelta[a.id] = (addonUsageDelta[a.id] ?? 0) + 1;
-        }
-        if (needCharacter && role === "killer" && finalCharacter) {
-          killerUsageDeltaId = finalCharacter.id;
-        }
-        if (role === "killer" && finalCharacter) killersToLoad.add(finalCharacter.id);
-
-        newRows.push({
-          character: finalCharacter,
-          perks: finalPerks,
-          addons: finalAddons,
-          item: finalItem,
-          itemAddons: finalItemAddons,
-          lockedChar: resetAll || !row.hasDrawn ? false : row.lockedChar,
-          lockedPerkIds: resetAll || !row.hasDrawn ? new Set() : row.lockedPerkIds,
-          lockedAddonIds: resetAll || !row.hasDrawn || needCharacter ? new Set() : row.lockedAddonIds,
-          lockedItem: resetAll || !row.hasDrawn ? false : row.lockedItem,
-          lockedItemAddonIds: resetAll || !row.hasDrawn || needItem ? new Set() : row.lockedItemAddonIds,
-          hasDrawn: true,
-          shareCode: null,
-        });
-      }
-
-      setRows(newRows);
-      markConquestUsed(allDrawnPerks);
-      for (const killerId of killersToLoad) ensureAddonOptions(killerId);
-      if (Object.keys(perkUsageDelta).length > 0) {
-        setPerkUsageCounts((prev) => {
-          const next = { ...prev };
-          for (const [id, delta] of Object.entries(perkUsageDelta)) next[id] = (next[id] ?? 0) + delta;
+        setRows((prev) => {
+          const next = [...prev];
+          next[index] = {
+            character: finalCharacter,
+            perks: [...keptPerks, ...drawn.perks],
+            addons: finalAddons,
+            item: finalItem,
+            itemAddons: finalItemAddons,
+            lockedChar: resetAll ? false : row.lockedChar,
+            lockedPerkIds: resetAll ? new Set() : row.lockedPerkIds,
+            lockedAddonIds: resetAll || needCharacter ? new Set() : row.lockedAddonIds,
+            lockedItem: resetAll ? false : row.lockedItem,
+            lockedItemAddonIds: resetAll || needItem ? new Set() : row.lockedItemAddonIds,
+            hasDrawn: true,
+            shareCode: null,
+          };
           return next;
         });
+
+        if (role === "killer" && finalCharacter) ensureAddonOptions(finalCharacter.id);
+        if (role === "survivor" && finalItem) ensureItemAddonOptions(finalItem.id);
+        bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons, drawn.itemAddons);
+        markConquestUsed(drawn.perks);
+
+        const hasUltraRare = [...drawn.addons, ...drawn.itemAddons].some((a) => a.rarity === "ultra_rare");
+        // 低確率(約1/150)で「停電」の特殊演出を挟む。実際の結果は変えず、
+        // 一瞬だけ画面が暗転してNo/どくろに切り替わった後、本来の結果に戻る小ネタ演出
+        if (Math.random() < 1 / 150) {
+          vibrate([40, 80, 40, 80, 200]);
+          setBlackoutRow(index);
+          window.setTimeout(() => setBlackoutRow((cur) => (cur === index ? null : cur)), 1700);
+        } else if (hasUltraRare) {
+          vibrate([15, 60, 15, 60, 15]);
+        } else {
+          vibrate(20);
+        }
+      } catch (err) {
+        console.error(err);
+        setErrorMessage("抽選に失敗しました。通信状況を確認してもう一度お試しください。");
+      } finally {
+        clearRowsPending([index]);
       }
-      if (Object.keys(addonUsageDelta).length > 0) {
-        setAddonUsageCounts((prev) => {
-          const next = { ...prev };
-          for (const [id, delta] of Object.entries(addonUsageDelta)) next[id] = (next[id] ?? 0) + delta;
-          return next;
-        });
-      }
-      if (killerUsageDeltaId) {
-        const id = killerUsageDeltaId;
-        setKillerUsageCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+    });
+  }
+
+  function drawAllRows(resetAll: boolean) {
+    setErrorMessage(null);
+    const allIndices = rows.map((_, i) => i);
+    markRowsPending(allIndices);
+
+    startTransition(async () => {
+      try {
+        const batchPerkCounts: Record<string, number> = {};
+        for (const row of rows) {
+          const kept = resetAll || !row.hasDrawn ? [] : row.perks.filter((p) => row.lockedPerkIds.has(p.id));
+          for (const p of kept) batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
+        }
+        const excludeCharacterIds = computeExcludedCharacterIds();
+
+        const newRows: Row[] = [];
+        const perkUsageDelta: Record<string, number> = {};
+        const addonUsageDelta: Record<string, number> = {};
+        let killerUsageDeltaId: string | null = null;
+        const killersToLoad = new Set<string>();
+        const itemsToLoad = new Set<string>();
+        const allDrawnPerks: PerkResult[] = [];
+        let hasUltraRare = false;
+
+        for (const row of rows) {
+          const needCharacter = resetAll || !row.hasDrawn || !row.lockedChar;
+          const keptPerks = resetAll || !row.hasDrawn ? [] : row.perks.filter((p) => row.lockedPerkIds.has(p.id));
+          const perkCount = 4 - keptPerks.length;
+          const excludePerkIds = [...keptPerks.map((p) => p.id), ...computeExcludedPerkIds(batchPerkCounts)];
+
+          const keptAddons =
+            resetAll || !row.hasDrawn || needCharacter
+              ? []
+              : row.addons.filter((a) => row.lockedAddonIds.has(a.id));
+          const addonCount = role === "killer" ? ADDON_COUNT - keptAddons.length : 0;
+          const excludeAddonIds = [...keptAddons.map((a) => a.id), ...computeExcludedAddonIds()];
+          const currentKillerId = !needCharacter ? row.character?.id : undefined;
+
+          const needItem = role === "survivor" && (resetAll || !row.hasDrawn || !row.lockedItem);
+          const keptItemAddons =
+            resetAll || !row.hasDrawn || needItem
+              ? []
+              : row.itemAddons.filter((a) => row.lockedItemAddonIds.has(a.id));
+          const itemAddonCount = role === "survivor" ? ITEM_ADDON_COUNT - keptItemAddons.length : 0;
+          const excludeItemAddonIds = [...keptItemAddons.map((a) => a.id), ...computeExcludedAddonIds()];
+          const currentItemId = role === "survivor" && !needItem ? row.item?.id : undefined;
+
+          const drawn = await drawBuildSlot(role, {
+            needCharacter,
+            perkCount,
+            excludePerkIds,
+            excludeCharacterIds,
+            addonCount,
+            excludeAddonIds,
+            currentKillerId,
+            needItem,
+            itemAddonCount,
+            excludeItemAddonIds,
+            currentItemId,
+          });
+          const finalCharacter = needCharacter ? drawn.character : row.character;
+          const finalPerks = [...keptPerks, ...drawn.perks];
+          const finalAddons = role === "killer" ? [...keptAddons, ...drawn.addons] : [];
+          const finalItem = role === "survivor" ? (needItem ? drawn.item : row.item) : null;
+          const finalItemAddons = role === "survivor" ? [...keptItemAddons, ...drawn.itemAddons] : [];
+
+          for (const p of drawn.perks) {
+            batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
+            perkUsageDelta[p.id] = (perkUsageDelta[p.id] ?? 0) + 1;
+            allDrawnPerks.push(p);
+          }
+          for (const a of [...drawn.addons, ...drawn.itemAddons]) {
+            addonUsageDelta[a.id] = (addonUsageDelta[a.id] ?? 0) + 1;
+            if (a.rarity === "ultra_rare") hasUltraRare = true;
+          }
+          if (needCharacter && role === "killer" && finalCharacter) {
+            killerUsageDeltaId = finalCharacter.id;
+          }
+          if (role === "killer" && finalCharacter) killersToLoad.add(finalCharacter.id);
+          if (role === "survivor" && finalItem) itemsToLoad.add(finalItem.id);
+
+          newRows.push({
+            character: finalCharacter,
+            perks: finalPerks,
+            addons: finalAddons,
+            item: finalItem,
+            itemAddons: finalItemAddons,
+            lockedChar: resetAll || !row.hasDrawn ? false : row.lockedChar,
+            lockedPerkIds: resetAll || !row.hasDrawn ? new Set() : row.lockedPerkIds,
+            lockedAddonIds: resetAll || !row.hasDrawn || needCharacter ? new Set() : row.lockedAddonIds,
+            lockedItem: resetAll || !row.hasDrawn ? false : row.lockedItem,
+            lockedItemAddonIds: resetAll || !row.hasDrawn || needItem ? new Set() : row.lockedItemAddonIds,
+            hasDrawn: true,
+            shareCode: null,
+          });
+        }
+
+        setRows(newRows);
+        markConquestUsed(allDrawnPerks);
+        for (const killerId of killersToLoad) ensureAddonOptions(killerId);
+        for (const itemId of itemsToLoad) ensureItemAddonOptions(itemId);
+        if (Object.keys(perkUsageDelta).length > 0) {
+          setPerkUsageCounts((prev) => {
+            const next = { ...prev };
+            for (const [id, delta] of Object.entries(perkUsageDelta)) next[id] = (next[id] ?? 0) + delta;
+            return next;
+          });
+        }
+        if (Object.keys(addonUsageDelta).length > 0) {
+          setAddonUsageCounts((prev) => {
+            const next = { ...prev };
+            for (const [id, delta] of Object.entries(addonUsageDelta)) next[id] = (next[id] ?? 0) + delta;
+            return next;
+          });
+        }
+        if (killerUsageDeltaId) {
+          const id = killerUsageDeltaId;
+          setKillerUsageCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+        }
+        vibrate(hasUltraRare ? [15, 60, 15, 60, 15] : 20);
+      } catch (err) {
+        console.error(err);
+        setErrorMessage("抽選に失敗しました。通信状況を確認してもう一度お試しください。");
+      } finally {
+        clearRowsPending(allIndices);
       }
     });
   }
@@ -506,9 +612,11 @@ export function RandomSelectTool({
       };
       return next;
     });
+    ensureItemAddonOptions(itemId);
   }
 
   function toggleLockChar(index: number) {
+    vibrate(10);
     setRows((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], lockedChar: !next[index].lockedChar };
@@ -517,6 +625,7 @@ export function RandomSelectTool({
   }
 
   function toggleLockPerk(index: number, perkId: string) {
+    vibrate(10);
     setRows((prev) => {
       const next = [...prev];
       const row = next[index];
@@ -529,6 +638,7 @@ export function RandomSelectTool({
   }
 
   function toggleLockAddon(index: number, addonId: string) {
+    vibrate(10);
     setRows((prev) => {
       const next = [...prev];
       const row = next[index];
@@ -541,6 +651,7 @@ export function RandomSelectTool({
   }
 
   function toggleLockItem(index: number) {
+    vibrate(10);
     setRows((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], lockedItem: !next[index].lockedItem };
@@ -549,6 +660,7 @@ export function RandomSelectTool({
   }
 
   function toggleLockItemAddon(index: number, addonId: string) {
+    vibrate(10);
     setRows((prev) => {
       const next = [...prev];
       const row = next[index];
@@ -691,24 +803,22 @@ export function RandomSelectTool({
             </div>
           )}
 
-          {role === "killer" && (
-            <div>
-              <p className="mb-1 text-[11px] text-bone-muted">
-                アドオン使用上限（この画面を開いている間のみ有効、リロードでリセット）
-              </p>
-              <div className="flex gap-2">
-                {LIMIT_OPTIONS.map((v) => (
-                  <button
-                    key={String(v)}
-                    onClick={() => setAddonUsageLimit(v)}
-                    className={pillClass(addonUsageLimit === v)}
-                  >
-                    {v === null ? "なし" : `${v}回まで`}
-                  </button>
-                ))}
-              </div>
+          <div>
+            <p className="mb-1 text-[11px] text-bone-muted">
+              アドオン使用上限（この画面を開いている間のみ有効、リロードでリセット）
+            </p>
+            <div className="flex gap-2">
+              {LIMIT_OPTIONS.map((v) => (
+                <button
+                  key={String(v)}
+                  onClick={() => setAddonUsageLimit(v)}
+                  className={pillClass(addonUsageLimit === v)}
+                >
+                  {v === null ? "なし" : `${v}回まで`}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           <div>
             <p className="mb-1 text-[11px] text-bone-muted">禁止パーク</p>
@@ -854,16 +964,75 @@ export function RandomSelectTool({
             </div>
           )}
 
+          {role === "survivor" && (
+            <div className="mt-4">
+              <p className="mb-1 text-[11px] text-bone-muted">
+                禁止アイテムアドオン（抽選や指定で登場したアイテムの分から選べます）
+              </p>
+              {Object.keys(addonOptionsByItem).length === 0 ? (
+                <p className="text-[11px] text-bone-muted">
+                  まだアイテムが登場していません。抽選するか指定すると、そのアイテムのアドオン一覧が選べるようになります。
+                </p>
+              ) : (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) toggleBannedAddon(e.target.value);
+                  }}
+                  className="w-full rounded-lg border border-[#2C2C2A] bg-ash2 px-2 py-1.5 text-[11px] text-bone"
+                >
+                  <option value="">追加する...</option>
+                  {Object.entries(addonOptionsByItem).map(([itemId, options]) => (
+                    <optgroup key={itemId} label={addonItemNames[itemId] ?? itemId}>
+                      {options.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
+              {bannedAddonIds.size > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {[...bannedAddonIds].map((id) => {
+                    const a = Object.values(addonOptionsByItem)
+                      .flat()
+                      .find((x) => x.id === id);
+                    if (!a) return null;
+                    return (
+                      <span
+                        key={id}
+                        className="flex items-center gap-1 rounded-full bg-blood-dark px-2 py-1 text-[10px] text-[#F5C4B3]"
+                      >
+                        {a.name}
+                        <button onClick={() => toggleBannedAddon(id)} aria-label="削除">
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <button onClick={resetUsageHistory} className="text-[11px] text-bone-muted underline">
             使用履歴をリセット
           </button>
         </div>
       </details>
 
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-blood bg-blood-dark px-3 py-2 text-xs text-[#F5C4B3]">
+          {errorMessage}
+        </div>
+      )}
+
       {rows.length > 1 && (
         <div className="mb-4 flex gap-2">
           <button
-            disabled={isPending}
+            disabled={anyPending}
             onClick={() => drawAllRows(!rows.some((r) => r.hasDrawn))}
             className="flex-1 rounded-lg bg-blood py-2.5 text-xs font-medium text-[#FCEBEB] disabled:opacity-60"
           >
@@ -871,7 +1040,7 @@ export function RandomSelectTool({
           </button>
           {rows.some((r) => r.hasDrawn) && (
             <button
-              disabled={isPending}
+              disabled={anyPending}
               onClick={() => drawAllRows(true)}
               className="rounded-lg border border-[#2C2C2A] px-3 text-xs text-bone-muted disabled:opacity-60"
             >
@@ -882,19 +1051,28 @@ export function RandomSelectTool({
       )}
 
       <div className="space-y-4">
-        {rows.map((row, index) => (
-          <div key={index} className="rounded-lg border border-[#2C2C2A] bg-ash p-3">
+        {rows.map((row, index) => {
+          const rowPending = pendingRows.has(index);
+          const isBlackout = blackoutRow === index;
+          return (
+          <div key={index} className="relative rounded-lg border border-[#2C2C2A] bg-ash p-3">
+            {isBlackout && (
+              <div className="tf-blackout absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-lg">
+                <span className="text-3xl">💀</span>
+                <span className="text-sm font-bold tracking-widest text-[#ff5555]">NO SIGNAL</span>
+              </div>
+            )}
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
               <div className="border-b border-[#2C2C2A] pb-3 sm:w-32 sm:flex-shrink-0 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-3">
                 <button
                   onClick={() => row.character && toggleLockChar(index)}
                   className={`w-full rounded-lg border p-3 text-center ${
                     row.lockedChar ? "border-blood" : "border-[#2C2C2A]"
-                  } bg-ash2 ${isPending && !row.lockedChar ? "tf-card-spinning" : "tf-card-settle"}`}
+                  } bg-ash2 ${rowPending && !row.lockedChar ? "tf-card-spinning" : "tf-card-settle"}`}
                 >
                   <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
                   <p className="text-[11px] text-bone">
-                    {isPending && !row.lockedChar ? "…" : row.character?.name ?? "?"}
+                    {rowPending && !row.lockedChar ? "…" : row.character?.name ?? "?"}
                   </p>
                   {row.lockedChar && <p className="mt-1 text-[10px] text-blood">固定中</p>}
                 </button>
@@ -918,7 +1096,7 @@ export function RandomSelectTool({
                 {Array.from({ length: 4 }).map((_, i) => {
                   const perk = row.perks[i];
                   const locked = !!perk && row.lockedPerkIds.has(perk.id);
-                  const spinning = isPending && !locked;
+                  const spinning = rowPending && !locked;
                   return (
                     <button
                       key={`${i}-${perk?.id ?? "empty"}`}
@@ -947,7 +1125,7 @@ export function RandomSelectTool({
                       key={`${i}-${addon?.id ?? "empty"}`}
                       addon={addon}
                       locked={locked}
-                      spinning={isPending && !locked}
+                      spinning={rowPending && !locked}
                       onToggle={() => addon && toggleLockAddon(index, addon.id)}
                     />
                   );
@@ -962,11 +1140,11 @@ export function RandomSelectTool({
                     onClick={() => row.item && toggleLockItem(index)}
                     className={`w-full rounded-lg border p-3 text-center ${
                       row.lockedItem ? "border-blood" : "border-[#2C2C2A]"
-                    } bg-ash2 ${isPending && !row.lockedItem ? "tf-card-spinning" : "tf-card-settle"}`}
+                    } bg-ash2 ${rowPending && !row.lockedItem ? "tf-card-spinning" : "tf-card-settle"}`}
                   >
                     <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
                     <p className="text-[11px] text-bone">
-                      {isPending && !row.lockedItem ? "…" : row.item?.name ?? "?"}
+                      {rowPending && !row.lockedItem ? "…" : row.item?.name ?? "?"}
                     </p>
                     {row.lockedItem && <p className="mt-1 text-[10px] text-blood">固定中</p>}
                   </button>
@@ -994,7 +1172,7 @@ export function RandomSelectTool({
                         key={`${i}-${addon?.id ?? "empty"}`}
                         addon={addon}
                         locked={locked}
-                        spinning={isPending && !locked}
+                        spinning={rowPending && !locked}
                         onToggle={() => addon && toggleLockItemAddon(index, addon.id)}
                       />
                     );
@@ -1005,7 +1183,7 @@ export function RandomSelectTool({
 
             <div className="mb-2 flex gap-2">
               <button
-                disabled={isPending}
+                disabled={rowPending}
                 onClick={() => drawRow(index, !row.hasDrawn)}
                 className="flex-1 rounded-lg bg-blood py-2 text-xs font-medium text-[#FCEBEB] disabled:opacity-60"
               >
@@ -1013,7 +1191,7 @@ export function RandomSelectTool({
               </button>
               {row.hasDrawn && (
                 <button
-                  disabled={isPending}
+                  disabled={rowPending}
                   onClick={() => drawRow(index, true)}
                   className="rounded-lg border border-[#2C2C2A] px-3 text-xs text-bone-muted disabled:opacity-60"
                 >
@@ -1025,7 +1203,7 @@ export function RandomSelectTool({
             {row.hasDrawn && row.character && (
               !row.shareCode ? (
                 <button
-                  disabled={isPending}
+                  disabled={rowPending}
                   onClick={() => shareRow(index)}
                   className="w-full rounded-md border border-[#2C2C2A] py-1.5 text-[11px] text-bone-muted"
                 >
@@ -1043,7 +1221,8 @@ export function RandomSelectTool({
               )
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -9,22 +9,35 @@ export function TargetPickTool({ plan }: { plan: { slug: string } }) {
   const [shareCode, setShareCode] = useState<string | null>(null);
   const [copied, setCopied] = useState<"share" | "overlay" | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function draw() {
+    setErrorMessage(null);
     startTransition(async () => {
-      const result = (await drawPlanResult(plan.slug, { count: 1 })) as string[];
-      setTarget(result[0] ?? null);
-      setLocked(false);
-      setShareCode(null);
+      try {
+        const result = (await drawPlanResult(plan.slug, { count: 1 })) as string[];
+        setTarget(result[0] ?? null);
+        setLocked(false);
+        setShareCode(null);
+      } catch (err) {
+        console.error(err);
+        setErrorMessage("指名に失敗しました。もう一度お試しください。");
+      }
     });
   }
 
   function lockIn() {
     if (!target) return;
+    setErrorMessage(null);
     startTransition(async () => {
-      const code = await sharePlanResult(plan.slug, [{ id: target, name: target, iconUrl: null }]);
-      setShareCode(code);
-      setLocked(true);
+      try {
+        const code = await sharePlanResult(plan.slug, [{ id: target, name: target, iconUrl: null }]);
+        setShareCode(code);
+        setLocked(true);
+      } catch (err) {
+        console.error(err);
+        setErrorMessage("共有リンクの発行に失敗しました。もう一度お試しください。");
+      }
     });
   }
 
@@ -47,6 +60,11 @@ export function TargetPickTool({ plan }: { plan: { slug: string } }) {
 
   return (
     <div>
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-blood bg-blood-dark px-3 py-2 text-xs text-[#F5C4B3]">
+          {errorMessage}
+        </div>
+      )}
       <div className="mb-4 flex justify-center">
         <div
           key={target ?? "empty"}

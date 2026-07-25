@@ -127,3 +127,25 @@ body {
   0% { transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateX(0) scale(1); opacity: 1; }
   100% { transform: translate(-50%, -50%) rotate(var(--spark-angle)) translateX(60px) scale(0.2); opacity: 0; }
 }
+
+/* 低確率の特殊演出「停電」: 画面が明滅しながら暗転し、どくろとNO SIGNALが浮かぶ */
+@keyframes tf-blackout-flicker {
+  0% { opacity: 0; }
+  8% { opacity: 0.97; }
+  12% { opacity: 0.2; }
+  18% { opacity: 0.97; }
+  22% { opacity: 0.3; }
+  30% { opacity: 0.97; }
+  100% { opacity: 0.97; }
+}
+@keyframes tf-blackout-text-flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.tf-blackout {
+  background: #050505;
+  animation: tf-blackout-flicker 0.5s steps(2, jump-end);
+}
+.tf-blackout span {
+  animation: tf-blackout-text-flicker 0.6s ease-in-out infinite;
+}

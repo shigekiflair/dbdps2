@@ -21,15 +21,22 @@ export function EscalationTool({
   const [rolling, setRolling] = useState(false);
   const [justTriggeredIndex, setJustTriggeredIndex] = useState<number | null>(null);
   const [, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState(false);
 
   const remainingPool = rulePool.map((rule, i) => ({ rule, i })).filter(({ i }) => !triggered.includes(i));
   const pointsIntoCycle = points % threshold;
   const pointsUntilNext = pointsIntoCycle === 0 && points > 0 ? threshold : threshold - pointsIntoCycle;
 
   function save(nextPoints: number, nextTriggered: number[]) {
-    startTransition(() =>
-      savePlanProgressPayload(plan.slug, { points: nextPoints, triggeredIndices: nextTriggered })
-    );
+    startTransition(async () => {
+      try {
+        await savePlanProgressPayload(plan.slug, { points: nextPoints, triggeredIndices: nextTriggered });
+        setSaveError(false);
+      } catch (err) {
+        console.error(err);
+        setSaveError(true);
+      }
+    });
   }
 
   function addPenalty() {
@@ -70,6 +77,11 @@ export function EscalationTool({
         {remainingPool.length > 0 && (
           <p className="mt-1 text-[11px] text-bone-muted">
             あと{pointsUntilNext}ptでルーレット発動（{threshold}ptごと）
+          </p>
+        )}
+        {saveError && (
+          <p className="mt-1 text-[11px] text-blood">
+            保存に失敗しました（表示上は反映されていますが、再読み込みすると消える可能性があります）
           </p>
         )}
       </div>

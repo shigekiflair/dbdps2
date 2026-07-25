@@ -89,6 +89,10 @@ export async function getKillerAddons(killerId: string) {
   return drawFromPool({ source: "addon", count: 9999 }, { killerId });
 }
 
+export async function getItemAddons(itemId: string) {
+  return drawFromPool({ source: "addon", count: 9999 }, { itemId });
+}
+
 export async function shareBuildResult(payload: {
   role: "survivor" | "killer";
   character: { id: string; name: string; iconUrl: string | null } | null;
