@@ -29,6 +29,9 @@ type Row = {
   lockedItemAddonIds: Set<string>;
   hasDrawn: boolean;
   shareCode: string | null;
+  // 低確率の「停電」が発生し、このラウンドはノーパーク（キャラクターのみ）で
+  // 儀式に挑むことになった行かどうか
+  blackedOut: boolean;
 };
 
 type PerkCapRule = { perkId: string; perkName: string; maxCount: number };
@@ -47,6 +50,7 @@ function emptyRow(): Row {
     lockedItemAddonIds: new Set(),
     hasDrawn: false,
     shareCode: null,
+    blackedOut: false,
   };
 }
 
@@ -60,6 +64,16 @@ function pillClass(active: boolean) {
 }
 
 const LIMIT_OPTIONS: (number | null)[] = [null, 1, 2, 3];
+
+// 停電の呪いでノーパークになった枠に表示する専用カード
+function SkullCard() {
+  return (
+    <div className="rounded-lg border border-[#4a1010] bg-[#1a0d0d] p-3 text-center">
+      <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center text-lg">💀</div>
+      <p className="text-[11px] text-[#ff8080]">NO</p>
+    </div>
+  );
+}
 
 function AddonCard({
   addon,
@@ -136,8 +150,8 @@ export function RandomSelectTool({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [conquestUsed, setConquestUsed] = useState<Set<string>>(new Set(conquest?.initialUsedIds ?? []));
   const [conquestPanelOpen, setConquestPanelOpen] = useState(false);
-  // 低確率の特殊演出（停電）が発生した行番号。演出が終わるとnullに戻す
-  const [blackoutRow, setBlackoutRow] = useState<number | null>(null);
+  // 低確率の特殊演出「停電」が発生している行番号の集合（複数行が同時に発生することもある）
+  const [blackoutRows, setBlackoutRows] = useState<Set<number>>(new Set());
 
   // --- 詳細ルール ------------------------------------------------
   const [perkUsageLimit, setPerkUsageLimit] = useState<number | null>(null);
@@ -405,37 +419,64 @@ export function RandomSelectTool({
         const finalItem = role === "survivor" ? (needItem ? drawn.item : row.item) : null;
         const finalItemAddons = role === "survivor" ? [...keptItemAddons, ...drawn.itemAddons] : [];
 
+        // 低確率(約1/150)で「停電」が発生し、パーク・アイテム・アドオンが全てはぎ取られる。
+        // キャラクターだけは残る（自己レビュー後のユーザー要望：見た目だけでなく実際の結果にする）
+        const isBlackout = Math.random() < 1 / 150;
+
         setRows((prev) => {
           const next = [...prev];
-          next[index] = {
-            character: finalCharacter,
-            perks: [...keptPerks, ...drawn.perks],
-            addons: finalAddons,
-            item: finalItem,
-            itemAddons: finalItemAddons,
-            lockedChar: resetAll ? false : row.lockedChar,
-            lockedPerkIds: resetAll ? new Set() : row.lockedPerkIds,
-            lockedAddonIds: resetAll || needCharacter ? new Set() : row.lockedAddonIds,
-            lockedItem: resetAll ? false : row.lockedItem,
-            lockedItemAddonIds: resetAll || needItem ? new Set() : row.lockedItemAddonIds,
-            hasDrawn: true,
-            shareCode: null,
-          };
+          next[index] = isBlackout
+            ? {
+                character: finalCharacter,
+                perks: [],
+                addons: [],
+                item: null,
+                itemAddons: [],
+                lockedChar: resetAll ? false : row.lockedChar,
+                lockedPerkIds: new Set(),
+                lockedAddonIds: new Set(),
+                lockedItem: false,
+                lockedItemAddonIds: new Set(),
+                hasDrawn: true,
+                shareCode: null,
+                blackedOut: true,
+              }
+            : {
+                character: finalCharacter,
+                perks: [...keptPerks, ...drawn.perks],
+                addons: finalAddons,
+                item: finalItem,
+                itemAddons: finalItemAddons,
+                lockedChar: resetAll ? false : row.lockedChar,
+                lockedPerkIds: resetAll ? new Set() : row.lockedPerkIds,
+                lockedAddonIds: resetAll || needCharacter ? new Set() : row.lockedAddonIds,
+                lockedItem: resetAll ? false : row.lockedItem,
+                lockedItemAddonIds: resetAll || needItem ? new Set() : row.lockedItemAddonIds,
+                hasDrawn: true,
+                shareCode: null,
+                blackedOut: false,
+              };
           return next;
         });
 
         if (role === "killer" && finalCharacter) ensureAddonOptions(finalCharacter.id);
         if (role === "survivor" && finalItem) ensureItemAddonOptions(finalItem.id);
-        bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons, drawn.itemAddons);
-        markConquestUsed(drawn.perks);
+        if (!isBlackout) {
+          bumpUsageCounts(needCharacter ? finalCharacter : null, drawn.perks, drawn.addons, drawn.itemAddons);
+          markConquestUsed(drawn.perks);
+        }
 
         const hasUltraRare = [...drawn.addons, ...drawn.itemAddons].some((a) => a.rarity === "ultra_rare");
-        // 低確率(約1/150)で「停電」の特殊演出を挟む。実際の結果は変えず、
-        // 一瞬だけ画面が暗転してNo/どくろに切り替わった後、本来の結果に戻る小ネタ演出
-        if (Math.random() < 1 / 150) {
+        if (isBlackout) {
           vibrate([40, 80, 40, 80, 200]);
-          setBlackoutRow(index);
-          window.setTimeout(() => setBlackoutRow((cur) => (cur === index ? null : cur)), 1700);
+          setBlackoutRows((prev) => new Set(prev).add(index));
+          window.setTimeout(() => {
+            setBlackoutRows((prev) => {
+              const next = new Set(prev);
+              next.delete(index);
+              return next;
+            });
+          }, 1400);
         } else if (hasUltraRare) {
           vibrate([15, 60, 15, 60, 15]);
         } else {
@@ -472,8 +513,14 @@ export function RandomSelectTool({
         const itemsToLoad = new Set<string>();
         const allDrawnPerks: PerkResult[] = [];
         let hasUltraRare = false;
+        const blackoutIndices: number[] = [];
 
-        for (const row of rows) {
+        // 超低確率(約1/2000)で「全員停電」が発生する。複数人で回している時のみ意味があるので
+        // 1行しか無い時は対象外。単発の停電(約1/150、drawRow参照)より一段レアな特殊演出
+        const isTotalBlackout = rows.length > 1 && Math.random() < 1 / 2000;
+
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+          const row = rows[rowIndex];
           const needCharacter = resetAll || !row.hasDrawn || !row.lockedChar;
           const keptPerks = resetAll || !row.hasDrawn ? [] : row.perks.filter((p) => row.lockedPerkIds.has(p.id));
           const perkCount = 4 - keptPerks.length;
@@ -515,6 +562,30 @@ export function RandomSelectTool({
           const finalItem = role === "survivor" ? (needItem ? drawn.item : row.item) : null;
           const finalItemAddons = role === "survivor" ? [...keptItemAddons, ...drawn.itemAddons] : [];
 
+          // 全員停電が発動していない時だけ、この行単独の停電(約1/150)も抽選する
+          const isRowBlackout = isTotalBlackout || (!isTotalBlackout && Math.random() < 1 / 150);
+
+          if (isRowBlackout) {
+            blackoutIndices.push(rowIndex);
+            newRows.push({
+              character: finalCharacter,
+              perks: [],
+              addons: [],
+              item: null,
+              itemAddons: [],
+              lockedChar: resetAll || !row.hasDrawn ? false : row.lockedChar,
+              lockedPerkIds: new Set(),
+              lockedAddonIds: new Set(),
+              lockedItem: false,
+              lockedItemAddonIds: new Set(),
+              hasDrawn: true,
+              shareCode: null,
+              blackedOut: true,
+            });
+            if (role === "killer" && finalCharacter) killersToLoad.add(finalCharacter.id);
+            continue;
+          }
+
           for (const p of drawn.perks) {
             batchPerkCounts[p.id] = (batchPerkCounts[p.id] ?? 0) + 1;
             perkUsageDelta[p.id] = (perkUsageDelta[p.id] ?? 0) + 1;
@@ -543,6 +614,7 @@ export function RandomSelectTool({
             lockedItemAddonIds: resetAll || !row.hasDrawn || needItem ? new Set() : row.lockedItemAddonIds,
             hasDrawn: true,
             shareCode: null,
+            blackedOut: false,
           });
         }
 
@@ -550,6 +622,25 @@ export function RandomSelectTool({
         markConquestUsed(allDrawnPerks);
         for (const killerId of killersToLoad) ensureAddonOptions(killerId);
         for (const itemId of itemsToLoad) ensureItemAddonOptions(itemId);
+        if (blackoutIndices.length > 0) {
+          vibrate(isTotalBlackout ? [60, 100, 60, 100, 60, 100, 300] : [40, 80, 40, 80, 200]);
+          setBlackoutRows((prev) => {
+            const next = new Set(prev);
+            for (const i of blackoutIndices) next.add(i);
+            return next;
+          });
+          window.setTimeout(() => {
+            setBlackoutRows((prev) => {
+              const next = new Set(prev);
+              for (const i of blackoutIndices) next.delete(i);
+              return next;
+            });
+          }, isTotalBlackout ? 2200 : 1400);
+        } else if (hasUltraRare) {
+          vibrate([15, 60, 15, 60, 15]);
+        } else {
+          vibrate(20);
+        }
         if (Object.keys(perkUsageDelta).length > 0) {
           setPerkUsageCounts((prev) => {
             const next = { ...prev };
@@ -568,7 +659,6 @@ export function RandomSelectTool({
           const id = killerUsageDeltaId;
           setKillerUsageCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
         }
-        vibrate(hasUltraRare ? [15, 60, 15, 60, 15] : 20);
       } catch (err) {
         console.error(err);
         setErrorMessage("抽選に失敗しました。通信状況を確認してもう一度お試しください。");
@@ -590,6 +680,7 @@ export function RandomSelectTool({
         lockedChar: true,
         lockedAddonIds: new Set(),
         hasDrawn: true,
+        blackedOut: false,
       };
       return next;
     });
@@ -609,6 +700,7 @@ export function RandomSelectTool({
         lockedItem: true,
         lockedItemAddonIds: new Set(),
         hasDrawn: true,
+        blackedOut: false,
       };
       return next;
     });
@@ -1053,7 +1145,7 @@ export function RandomSelectTool({
       <div className="space-y-4">
         {rows.map((row, index) => {
           const rowPending = pendingRows.has(index);
-          const isBlackout = blackoutRow === index;
+          const isBlackout = blackoutRows.has(index);
           return (
           <div key={index} className="relative rounded-lg border border-[#2C2C2A] bg-ash p-3">
             {isBlackout && (
@@ -1061,6 +1153,11 @@ export function RandomSelectTool({
                 <span className="text-3xl">💀</span>
                 <span className="text-sm font-bold tracking-widest text-[#ff5555]">NO SIGNAL</span>
               </div>
+            )}
+            {row.blackedOut && !isBlackout && (
+              <p className="mb-3 rounded-md border border-[#4a1010] bg-[#1a0d0d] px-2 py-1.5 text-center text-[11px] text-[#ff8080]">
+                💀 停電の呪い発生：このラウンドはノーパークで儀式に挑む
+              </p>
             )}
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
               <div className="border-b border-[#2C2C2A] pb-3 sm:w-32 sm:flex-shrink-0 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-3">
@@ -1093,78 +1190,90 @@ export function RandomSelectTool({
               </div>
 
               <div className="grid flex-1 grid-cols-4 gap-2">
-                {Array.from({ length: 4 }).map((_, i) => {
-                  const perk = row.perks[i];
-                  const locked = !!perk && row.lockedPerkIds.has(perk.id);
-                  const spinning = rowPending && !locked;
-                  return (
-                    <button
-                      key={`${i}-${perk?.id ?? "empty"}`}
-                      onClick={() => perk && toggleLockPerk(index, perk.id)}
-                      className={`rounded-lg border p-3 text-center ${
-                        locked ? "border-blood" : "border-[#2C2C2A]"
-                      } bg-ash2 ${spinning ? "tf-card-spinning" : "tf-card-settle"}`}
-                    >
-                      <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                      <p className="text-[11px] text-bone">{spinning ? "…" : perk?.name ?? "?"}</p>
-                      {locked && <p className="mt-1 text-[10px] text-blood">固定中</p>}
-                    </button>
-                  );
-                })}
+                {row.blackedOut
+                  ? Array.from({ length: 4 }).map((_, i) => <SkullCard key={i} />)
+                  : Array.from({ length: 4 }).map((_, i) => {
+                      const perk = row.perks[i];
+                      const locked = !!perk && row.lockedPerkIds.has(perk.id);
+                      const spinning = rowPending && !locked;
+                      return (
+                        <button
+                          key={`${i}-${perk?.id ?? "empty"}`}
+                          onClick={() => perk && toggleLockPerk(index, perk.id)}
+                          className={`rounded-lg border p-3 text-center ${
+                            locked ? "border-blood" : "border-[#2C2C2A]"
+                          } bg-ash2 ${spinning ? "tf-card-spinning" : "tf-card-settle"}`}
+                        >
+                          <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
+                          <p className="text-[11px] text-bone">{spinning ? "…" : perk?.name ?? "?"}</p>
+                          {locked && <p className="mt-1 text-[10px] text-blood">固定中</p>}
+                        </button>
+                      );
+                    })}
               </div>
             </div>
 
             {role === "killer" && (
               <div className="mb-3 grid grid-cols-2 gap-2">
-                {Array.from({ length: ADDON_COUNT }).map((_, i) => {
-                  const addon = row.addons[i];
-                  const locked = !!addon && row.lockedAddonIds.has(addon.id);
-                  return (
-                    <AddonCard
-                      // addon.id を含めることで、毎回演出アニメーションが最初から再生される
-                      key={`${i}-${addon?.id ?? "empty"}`}
-                      addon={addon}
-                      locked={locked}
-                      spinning={rowPending && !locked}
-                      onToggle={() => addon && toggleLockAddon(index, addon.id)}
-                    />
-                  );
-                })}
+                {row.blackedOut
+                  ? Array.from({ length: ADDON_COUNT }).map((_, i) => <SkullCard key={i} />)
+                  : Array.from({ length: ADDON_COUNT }).map((_, i) => {
+                      const addon = row.addons[i];
+                      const locked = !!addon && row.lockedAddonIds.has(addon.id);
+                      return (
+                        <AddonCard
+                          // addon.id を含めることで、毎回演出アニメーションが最初から再生される
+                          key={`${i}-${addon?.id ?? "empty"}`}
+                          addon={addon}
+                          locked={locked}
+                          spinning={rowPending && !locked}
+                          onToggle={() => addon && toggleLockAddon(index, addon.id)}
+                        />
+                      );
+                    })}
               </div>
             )}
 
             {role === "survivor" && (
               <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
                 <div className="sm:w-32 sm:flex-shrink-0">
-                  <button
-                    onClick={() => row.item && toggleLockItem(index)}
-                    className={`w-full rounded-lg border p-3 text-center ${
-                      row.lockedItem ? "border-blood" : "border-[#2C2C2A]"
-                    } bg-ash2 ${rowPending && !row.lockedItem ? "tf-card-spinning" : "tf-card-settle"}`}
-                  >
-                    <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                    <p className="text-[11px] text-bone">
-                      {rowPending && !row.lockedItem ? "…" : row.item?.name ?? "?"}
-                    </p>
-                    {row.lockedItem && <p className="mt-1 text-[10px] text-blood">固定中</p>}
-                  </button>
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) pinItem(index, e.target.value);
-                    }}
-                    className="mt-1 w-full rounded border border-[#2C2C2A] bg-ash2 px-1 py-1 text-[10px] text-bone-muted"
-                  >
-                    <option value="">アイテム指定...</option>
-                    {itemList.map((it) => (
-                      <option key={it.id} value={it.id}>
-                        {it.name}
-                      </option>
-                    ))}
-                  </select>
+                  {row.blackedOut ? (
+                    <SkullCard />
+                  ) : (
+                    <button
+                      onClick={() => row.item && toggleLockItem(index)}
+                      className={`w-full rounded-lg border p-3 text-center ${
+                        row.lockedItem ? "border-blood" : "border-[#2C2C2A]"
+                      } bg-ash2 ${rowPending && !row.lockedItem ? "tf-card-spinning" : "tf-card-settle"}`}
+                    >
+                      <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
+                      <p className="text-[11px] text-bone">
+                        {rowPending && !row.lockedItem ? "…" : row.item?.name ?? "?"}
+                      </p>
+                      {row.lockedItem && <p className="mt-1 text-[10px] text-blood">固定中</p>}
+                    </button>
+                  )}
+                  {!row.blackedOut && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) pinItem(index, e.target.value);
+                      }}
+                      className="mt-1 w-full rounded border border-[#2C2C2A] bg-ash2 px-1 py-1 text-[10px] text-bone-muted"
+                    >
+                      <option value="">アイテム指定...</option>
+                      {itemList.map((it) => (
+                        <option key={it.id} value={it.id}>
+                          {it.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div className="grid flex-1 grid-cols-2 gap-2">
-                  {Array.from({ length: ITEM_ADDON_COUNT }).map((_, i) => {
+                  {row.blackedOut
+                    ? Array.from({ length: ITEM_ADDON_COUNT }).map((_, i) => <SkullCard key={i} />)
+                    : Array.from({ length: ITEM_ADDON_COUNT }).map((_, i) => {
                     const addon = row.itemAddons[i];
                     const locked = !!addon && row.lockedItemAddonIds.has(addon.id);
                     return (
