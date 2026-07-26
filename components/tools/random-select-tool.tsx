@@ -152,6 +152,8 @@ export function RandomSelectTool({
   const [conquestPanelOpen, setConquestPanelOpen] = useState(false);
   // 低確率の特殊演出「停電」が発生している行番号の集合（複数行が同時に発生することもある）
   const [blackoutRows, setBlackoutRows] = useState<Set<number>>(new Set());
+  // テスト用: これがtrueの間は次の抽選(1行分)で確率に関わらず必ず停電を発生させる
+  const [forceBlackoutNext, setForceBlackoutNext] = useState(false);
 
   // --- 詳細ルール ------------------------------------------------
   const [perkUsageLimit, setPerkUsageLimit] = useState<number | null>(null);
@@ -421,7 +423,9 @@ export function RandomSelectTool({
 
         // 低確率(約1/150)で「停電」が発生し、パーク・アイテム・アドオンが全てはぎ取られる。
         // キャラクターだけは残る（自己レビュー後のユーザー要望：見た目だけでなく実際の結果にする）
-        const isBlackout = Math.random() < 1 / 150;
+        // forceBlackoutNextがtrueの場合はテスト用に確率を無視して必ず発生させる
+        const isBlackout = forceBlackoutNext || Math.random() < 1 / 150;
+        if (forceBlackoutNext) setForceBlackoutNext(false);
 
         setRows((prev) => {
           const next = [...prev];
@@ -1112,6 +1116,17 @@ export function RandomSelectTool({
           <button onClick={resetUsageHistory} className="text-[11px] text-bone-muted underline">
             使用履歴をリセット
           </button>
+
+          <div className="mt-4 rounded-lg border border-[#4a1010] bg-[#1a0d0d] p-3">
+            <label className="flex items-center gap-2 text-[11px] text-[#ff8080]">
+              <input
+                type="checkbox"
+                checked={forceBlackoutNext}
+                onChange={(e) => setForceBlackoutNext(e.target.checked)}
+              />
+              💀 次の抽選（1行分）で停電を強制発生させる（動作確認用）
+            </label>
+          </div>
         </div>
       </details>
 
