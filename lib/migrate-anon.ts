@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { planProgress, planResults } from "@/db/schema";
 import { auth } from "@/auth";
 import { ANON_COOKIE } from "@/lib/anon-user";
+import { migrateFavorites } from "@/lib/favorites";
 
 /**
  * ログイン直後に呼ぶ想定。
@@ -23,6 +24,7 @@ export async function migrateAnonProgress() {
 
   await db.update(planProgress).set({ userId: session.user.id }).where(eq(planProgress.userId, anonId));
   await db.update(planResults).set({ userId: session.user.id }).where(eq(planResults.userId, anonId));
+  await migrateFavorites(anonId, session.user.id);
 
   store.delete(ANON_COOKIE);
 }

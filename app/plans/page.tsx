@@ -1,15 +1,22 @@
 import { getPublishedPlans } from "@/lib/plans";
+import { getFavoriteSlugs } from "@/lib/favorites";
+import { getCurrentIdentityId } from "@/lib/identity";
 import { PlanFilterBar } from "@/components/plan-filter-bar";
 import { UserNav } from "@/components/user-nav";
 
 export default async function PlansPage() {
-  const plans = await getPublishedPlans();
+  const identityId = await getCurrentIdentityId();
+  const [plans, favoriteSlugs] = await Promise.all([
+    getPublishedPlans(),
+    getFavoriteSlugs(identityId),
+  ]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
       <header className="mb-6 flex items-center justify-between">
         <span className="text-sm font-medium tracking-wide text-bone">TRIAL FORGE</span>
         <nav className="flex items-center gap-4 text-xs text-bone-muted">
+          <a href="/mypage">マイページ</a>
           <a href="/tools">ツール</a>
           <UserNav />
         </nav>
@@ -28,7 +35,7 @@ export default async function PlansPage() {
         </a>
       </div>
 
-      <PlanFilterBar plans={plans} />
+      <PlanFilterBar plans={plans} favoriteSlugs={favoriteSlugs} />
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { planTypeBadge } from "@/lib/plan-ui";
+import { FavoriteButton } from "./favorite-button";
 
 type PlanCardData = {
   slug: string;
@@ -8,13 +9,22 @@ type PlanCardData = {
   type: string;
 };
 
-export function PlanCard({ plan }: { plan: PlanCardData }) {
+export function PlanCard({
+  plan,
+  favorited = false,
+}: {
+  plan: PlanCardData;
+  favorited?: boolean;
+}) {
   const badge = planTypeBadge(plan.type);
   return (
     <div className="rounded-card border border-[#2C2C2A] bg-ash p-4">
-      <span className={`inline-block rounded px-2 py-1 text-[10px] ${badge.className}`}>
-        {badge.label}
-      </span>
+      <div className="flex items-start justify-between gap-2">
+        <span className={`inline-block rounded px-2 py-1 text-[10px] ${badge.className}`}>
+          {badge.label}
+        </span>
+        <FavoriteButton slug={plan.slug} initialFavorited={favorited} />
+      </div>
       <p className="mt-2 text-sm font-medium text-bone">{plan.title}</p>
       <p className="mt-1 line-clamp-2 text-xs text-bone-muted">{plan.description}</p>
       <Link

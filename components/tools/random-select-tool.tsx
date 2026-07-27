@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type CSSProperties } from "react";
+import { useRef, useState, useTransition, type CSSProperties } from "react";
 import {
   drawBuildSlot,
   getKillerAddons,
@@ -80,15 +80,17 @@ function AddonCard({
   locked,
   spinning,
   onToggle,
+  simplify = false,
 }: {
   addon: AddonResult | undefined;
   locked: boolean;
   spinning: boolean;
   onToggle: () => void;
+  simplify?: boolean;
 }) {
   const rarity = addon?.rarity;
   const style = rarity ? RARITY_STYLE[rarity] : null;
-  const isUltra = !!style && rarity === "ultra_rare" && !spinning;
+  const isUltra = !!style && rarity === "ultra_rare" && !spinning && !simplify;
   const settleClass = spinning ? "tf-card-spinning" : isUltra ? "tf-ultra-rare" : "tf-card-settle";
   return (
     <button
@@ -154,6 +156,14 @@ export function RandomSelectTool({
   const [blackoutRows, setBlackoutRows] = useState<Set<number>>(new Set());
   // テスト用: これがtrueの間は次の抽選(1行分)で確率に関わらず必ず停電を発生させる
   const [forceBlackoutNext, setForceBlackoutNext] = useState(false);
+  // 予告演出（回転前のチラ見せ）が発生している行番号の集合。停電が来る時は必ず、
+  // それ以外の時も低確率で「ガセ」の予告が出ることがある（本物かどうかは結果が出るまで分からない）
+  const [teaseRows, setTeaseRows] = useState<Set<number>>(new Set());
+  // 演出簡略化（ウルトラレア演出・停電の暗転フリッカー・予告演出を抑える）
+  const [simplifyEffects, setSimplifyEffects] = useState(false);
+  // ミュート（Web Audio APIによる効果音を無効化）
+  const [muted, setMuted] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   // --- 詳細ルール ------------------------------------------------
   const [perkUsageLimit, setPerkUsageLimit] = useState<number | null>(null);
@@ -252,6 +262,86 @@ export function RandomSelectTool({
         // 一部ブラウザは呼び出し自体は許可するが失敗することがあるため握りつぶす
       }
     }
+  }
+
+  // 効果音はファイルを持たず、Web Audio APIでその場合成する（アセット不要・軽量）。
+  // AudioContextはユーザー操作(クリック)の中で生成する前提なのでブラウザの自動再生制限に引っかからない。
+  function getAudioCtx(): AudioContext | null {
+    if (typeof window === "undefined") return null;
+    const AC = window.AudioContext ?? (window as any).webkitAudioContext;
+    if (!AC) return null;
+    if (!audioCtxRef.current) audioCtxRef.current = new AC();
+    if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
+    return audioCtxRef.current;
+  }
+
+  function playSound(kind: "lock" | "draw" | "ultra" | "tease" | "blackout") {
+    if (muted) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    function tone(freq: number, start: number, duration: number, type: OscillatorType = "sine", gain = 0.05) {
+      const osc = ctx!.createOscillator();
+      const g = ctx!.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, now + start);
+      g.gain.linearRampToValueAtTime(gain, now + start + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+      osc.connect(g).connect(ctx!.destination);
+      osc.start(now + start);
+      osc.stop(now + start + duration + 0.02);
+    }
+
+    switch (kind) {
+      case "lock":
+        tone(880, 0, 0.05, "square", 0.03);
+        break;
+      case "draw":
+        tone(660, 0, 0.12);
+        break;
+      case "ultra":
+        tone(660, 0, 0.1);
+        tone(880, 0.08, 0.12);
+        tone(1100, 0.16, 0.2);
+        break;
+      case "tease":
+        tone(220, 0, 0.16, "sawtooth", 0.025);
+        break;
+      case "blackout":
+        tone(160, 0, 0.4, "sawtooth", 0.045);
+        tone(110, 0.12, 0.5, "sawtooth", 0.045);
+        break;
+    }
+  }
+
+  function sleep(ms: number) {
+    return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  /**
+   * 予告演出（回転前のチラ見せ）。停電になる行では必ず、それ以外の行でも約8%の確率で
+   * 「ガセ」の予告フリッカーが挟まる。本物かどうかは演出が終わるまでプレイヤーには分からない。
+   * 演出簡略化がONの場合は何もせず即座に返す。
+   */
+  async function maybeTease(indices: number[], guaranteed: boolean) {
+    if (simplifyEffects) return;
+    if (!guaranteed && Math.random() >= 0.08) return;
+
+    setTeaseRows((prev) => {
+      const next = new Set(prev);
+      for (const i of indices) next.add(i);
+      return next;
+    });
+    playSound("tease");
+    vibrate(15);
+    await sleep(guaranteed ? 550 : 380);
+    setTeaseRows((prev) => {
+      const next = new Set(prev);
+      for (const i of indices) next.delete(i);
+      return next;
+    });
   }
 
   function markRowsPending(indices: number[]) {
@@ -427,6 +517,8 @@ export function RandomSelectTool({
         const isBlackout = forceBlackoutNext || Math.random() < 1 / 150;
         if (forceBlackoutNext) setForceBlackoutNext(false);
 
+        await maybeTease([index], isBlackout);
+
         setRows((prev) => {
           const next = [...prev];
           next[index] = isBlackout
@@ -473,6 +565,7 @@ export function RandomSelectTool({
         const hasUltraRare = [...drawn.addons, ...drawn.itemAddons].some((a) => a.rarity === "ultra_rare");
         if (isBlackout) {
           vibrate([40, 80, 40, 80, 200]);
+          playSound("blackout");
           setBlackoutRows((prev) => new Set(prev).add(index));
           window.setTimeout(() => {
             setBlackoutRows((prev) => {
@@ -483,8 +576,10 @@ export function RandomSelectTool({
           }, 1400);
         } else if (hasUltraRare) {
           vibrate([15, 60, 15, 60, 15]);
+          playSound("ultra");
         } else {
           vibrate(20);
+          playSound("draw");
         }
       } catch (err) {
         console.error(err);
@@ -622,12 +717,15 @@ export function RandomSelectTool({
           });
         }
 
+        await maybeTease(allIndices, isTotalBlackout || blackoutIndices.length > 0);
+
         setRows(newRows);
         markConquestUsed(allDrawnPerks);
         for (const killerId of killersToLoad) ensureAddonOptions(killerId);
         for (const itemId of itemsToLoad) ensureItemAddonOptions(itemId);
         if (blackoutIndices.length > 0) {
           vibrate(isTotalBlackout ? [60, 100, 60, 100, 60, 100, 300] : [40, 80, 40, 80, 200]);
+          playSound("blackout");
           setBlackoutRows((prev) => {
             const next = new Set(prev);
             for (const i of blackoutIndices) next.add(i);
@@ -642,8 +740,10 @@ export function RandomSelectTool({
           }, isTotalBlackout ? 2200 : 1400);
         } else if (hasUltraRare) {
           vibrate([15, 60, 15, 60, 15]);
+          playSound("ultra");
         } else {
           vibrate(20);
+          playSound("draw");
         }
         if (Object.keys(perkUsageDelta).length > 0) {
           setPerkUsageCounts((prev) => {
@@ -713,6 +813,7 @@ export function RandomSelectTool({
 
   function toggleLockChar(index: number) {
     vibrate(10);
+    playSound("lock");
     setRows((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], lockedChar: !next[index].lockedChar };
@@ -722,6 +823,7 @@ export function RandomSelectTool({
 
   function toggleLockPerk(index: number, perkId: string) {
     vibrate(10);
+    playSound("lock");
     setRows((prev) => {
       const next = [...prev];
       const row = next[index];
@@ -735,6 +837,7 @@ export function RandomSelectTool({
 
   function toggleLockAddon(index: number, addonId: string) {
     vibrate(10);
+    playSound("lock");
     setRows((prev) => {
       const next = [...prev];
       const row = next[index];
@@ -748,6 +851,7 @@ export function RandomSelectTool({
 
   function toggleLockItem(index: number) {
     vibrate(10);
+    playSound("lock");
     setRows((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], lockedItem: !next[index].lockedItem };
@@ -757,6 +861,7 @@ export function RandomSelectTool({
 
   function toggleLockItemAddon(index: number, addonId: string) {
     vibrate(10);
+    playSound("lock");
     setRows((prev) => {
       const next = [...prev];
       const row = next[index];
@@ -1117,7 +1222,22 @@ export function RandomSelectTool({
             使用履歴をリセット
           </button>
 
-          <div className="mt-4 rounded-lg border border-[#4a1010] bg-[#1a0d0d] p-3">
+          <div className="mt-4 flex flex-wrap gap-4 rounded-lg border border-[#2C2C2A] bg-ash2 p-3">
+            <label className="flex items-center gap-2 text-[11px] text-bone">
+              <input
+                type="checkbox"
+                checked={simplifyEffects}
+                onChange={(e) => setSimplifyEffects(e.target.checked)}
+              />
+              演出を簡略化（予告演出・ウルトラレア演出・停電の暗転フリッカーを抑える）
+            </label>
+            <label className="flex items-center gap-2 text-[11px] text-bone">
+              <input type="checkbox" checked={muted} onChange={(e) => setMuted(e.target.checked)} />
+              効果音をミュート
+            </label>
+          </div>
+
+          <div className="mt-3 rounded-lg border border-[#4a1010] bg-[#1a0d0d] p-3">
             <label className="flex items-center gap-2 text-[11px] text-[#ff8080]">
               <input
                 type="checkbox"
@@ -1161,10 +1281,20 @@ export function RandomSelectTool({
         {rows.map((row, index) => {
           const rowPending = pendingRows.has(index);
           const isBlackout = blackoutRows.has(index);
+          const isTeasing = teaseRows.has(index);
           return (
-          <div key={index} className="relative rounded-lg border border-[#2C2C2A] bg-ash p-3">
+          <div
+            key={index}
+            className={`relative rounded-lg border border-[#2C2C2A] bg-ash p-3 ${
+              isTeasing && !simplifyEffects ? "tf-tease" : ""
+            }`}
+          >
             {isBlackout && (
-              <div className="tf-blackout absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-lg">
+              <div
+                className={`absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-lg ${
+                  simplifyEffects ? "bg-[#050505]" : "tf-blackout"
+                }`}
+              >
                 <span className="text-3xl">💀</span>
                 <span className="text-sm font-bold tracking-widest text-[#ff5555]">NO SIGNAL</span>
               </div>
@@ -1243,6 +1373,7 @@ export function RandomSelectTool({
                           locked={locked}
                           spinning={rowPending && !locked}
                           onToggle={() => addon && toggleLockAddon(index, addon.id)}
+                          simplify={simplifyEffects}
                         />
                       );
                     })}
@@ -1298,6 +1429,7 @@ export function RandomSelectTool({
                         locked={locked}
                         spinning={rowPending && !locked}
                         onToggle={() => addon && toggleLockItemAddon(index, addon.id)}
+                        simplify={simplifyEffects}
                       />
                     );
                   })}

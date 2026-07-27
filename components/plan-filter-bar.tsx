@@ -5,6 +5,7 @@ import { PlanCard } from "./plan-card";
 
 const TYPE_FILTERS = [
   { value: "all", label: "すべて" },
+  { value: "favorites", label: "★お気に入り" },
   { value: "lottery", label: "抽選型" },
   { value: "tracking", label: "進捗型" },
   { value: "data_accumulation", label: "データ蓄積" },
@@ -18,13 +19,21 @@ type PlanListItem = {
   type: string;
 };
 
-export function PlanFilterBar({ plans }: { plans: PlanListItem[] }) {
+export function PlanFilterBar({
+  plans,
+  favoriteSlugs = [],
+}: {
+  plans: PlanListItem[];
+  favoriteSlugs?: string[];
+}) {
   const [type, setType] = useState("all");
+  const favoriteSet = useMemo(() => new Set(favoriteSlugs), [favoriteSlugs]);
 
-  const filtered = useMemo(
-    () => (type === "all" ? plans : plans.filter((p) => p.type === type)),
-    [plans, type]
-  );
+  const filtered = useMemo(() => {
+    if (type === "all") return plans;
+    if (type === "favorites") return plans.filter((p) => favoriteSet.has(p.slug));
+    return plans.filter((p) => p.type === type);
+  }, [plans, type, favoriteSet]);
 
   return (
     <div>
@@ -45,11 +54,13 @@ export function PlanFilterBar({ plans }: { plans: PlanListItem[] }) {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="py-12 text-center text-xs text-bone-muted">該当する企画がまだありません。</p>
+        <p className="py-12 text-center text-xs text-bone-muted">
+          {type === "favorites" ? "まだお気に入りに追加した企画がありません。カードの☆から追加できます。" : "該当する企画がまだありません。"}
+        </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p) => (
-            <PlanCard key={p.slug} plan={p} />
+            <PlanCard key={p.slug} plan={p} favorited={favoriteSet.has(p.slug)} />
           ))}
         </div>
       )}

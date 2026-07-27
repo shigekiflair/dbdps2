@@ -56,6 +56,12 @@ export const rarityEnum = pgEnum("rarity", [
   "event",
 ]);
 
+export const bettingRoundStatusEnum = pgEnum("betting_round_status", [
+  "open",      // 投票受付中
+  "closed",    // 投票締切・結果確定待ち
+  "resolved",  // 正解確定済み
+]);
+
 /* =========================================================
    エンティティプール系
    ========================================================= */
@@ -222,6 +228,48 @@ export const planProgress = pgTable("plan_progress", {
   uniquePerUserPlan: uniqueIndex("plan_progress_user_plan_unique").on(t.planId, t.userId),
 }));
 
+// お気に入り企画（マイページ機能）。
+// userIdはplan_progressと同じ考え方で、匿名Cookie ID/実ユーザーIDどちらも受け入れるためFKを張らない。
+export const planFavorites = pgTable("plan_favorites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  planId: uuid("plan_id").notNull().references(() => plans.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  uniquePerUserPlan: uniqueIndex("plan_favorites_user_plan_unique").on(t.planId, t.userId),
+}));
+
+/* =========================================================
+   予想・ベッティング型（視聴者オッズ予想戦／裁判ガチャ等）
+   ========================================================= */
+
+// 1つの「お題」。配信者が試合前後にquestion+optionsで作成し、視聴者はresolveされるまで投票できる。
+// 1企画(plan)に対して同時に有効なラウンドは基本1つの運用を想定（新しいラウンドを開始すれば前のラウンドは
+// 過去ログとして残り続ける。getLatestRoundで最新の1件だけを「現在のお題」として扱う）。
+export const bettingRounds = pgTable("betting_rounds", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  planId: uuid("plan_id").notNull().references(() => plans.id, { onDelete: "cascade" }),
+  question: text("question").notNull(),
+  // [{ id: string, label: string }] の配列。idはoption内でユニークであればよい(uuidである必要はない)
+  options: jsonb("options").notNull(),
+  status: bettingRoundStatusEnum("status").default("open").notNull(),
+  correctOptionId: text("correct_option_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at", { mode: "date" }),
+  resolvedAt: timestamp("resolved_at", { mode: "date" }),
+});
+
+// 各視聴者(匿名Cookie or 実ユーザー)の1票。ラウンドがopenの間は投票し直し(上書き)できる。
+export const bettingVotes = pgTable("betting_votes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  roundId: uuid("round_id").notNull().references(() => bettingRounds.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull(),
+  optionId: text("option_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  uniquePerUserRound: uniqueIndex("betting_votes_user_round_unique").on(t.roundId, t.userId),
+}));
+
 /* =========================================================
    認証（Auth.js / @auth/drizzle-adapter）
    ========================================================= */
@@ -232,6 +280,9 @@ export const users = pgTable("user", {
   email: text("email").unique(),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
+  // 配信者本人(サイトオーナー)かどうか。予想・ベッティング型のラウンド作成/正解確定など
+  // 「配信者だけができる操作」を区別するために使う。初回ログイン後、DB側で手動でtrueに切り替える運用
+  isAdmin: boolean("isAdmin").default(false).notNull(),
 });
 
 export const accounts = pgTable(
@@ -302,6 +353,29 @@ export const addonsRelations = relations(addons, ({ one }) => ({
 export const plansRelations = relations(plans, ({ many }) => ({
   results: many(planResults),
   progress: many(planProgress),
+  favorites: many(planFavorites),
+}));
+
+export const planFavoritesRelations = relations(planFavorites, ({ one }) => ({
+  plan: one(plans, {
+    fields: [planFavorites.planId],
+    references: [plans.id],
+  }),
+}));
+
+export const bettingRoundsRelations = relations(bettingRounds, ({ one, many }) => ({
+  plan: one(plans, {
+    fields: [bettingRounds.planId],
+    references: [plans.id],
+  }),
+  votes: many(bettingVotes),
+}));
+
+export const bettingVotesRelations = relations(bettingVotes, ({ one }) => ({
+  round: one(bettingRounds, {
+    fields: [bettingVotes.roundId],
+    references: [bettingRounds.id],
+  }),
 }));
 
 export const planResultsRelations = relations(planResults, ({ one }) => ({

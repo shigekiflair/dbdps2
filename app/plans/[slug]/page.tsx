@@ -14,6 +14,8 @@ import { DataAccumulationTool } from "@/components/tools/data-accumulation-tool"
 import { RandomSelectTool } from "@/components/tools/random-select-tool";
 import { TargetPickTool } from "@/components/tools/target-pick-tool";
 import { EscalationTool } from "@/components/tools/escalation-tool";
+import { TriggerTool } from "@/components/tools/trigger-tool";
+import { BettingTool } from "@/components/tools/betting-tool";
 import { SharePageButton } from "@/components/share-page-button";
 
 export default async function PlanDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -80,7 +82,12 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
       {plan.type === "escalation" && (
         <EscalationLoader planId={plan.id} slug={plan.slug} pool={pool} />
       )}
-      {/* draft / betting 等の残りのタイプはPhase5で追加 */}
+
+      {plan.type === "trigger_internal" && (
+        <TriggerTool plan={{ slug: plan.slug }} items={pool?.customPool ?? []} />
+      )}
+      {plan.type === "betting" && <BettingTool plan={{ slug: plan.slug }} />}
+      {/* draft型はPhase5で追加 */}
     </main>
   );
 }
