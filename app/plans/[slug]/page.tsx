@@ -88,7 +88,7 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
       {plan.type === "trigger_internal" && (
         <TriggerTool plan={{ slug: plan.slug }} items={pool?.customPool ?? []} />
       )}
-      {plan.type === "betting" && <BettingTool plan={{ slug: plan.slug }} />}
+      {plan.type === "betting" && <BettingLoader slug={plan.slug} />}
       {plan.type === "tier_list" && <TierListView poolConfig={plan.poolConfig as any} />}
       {/* draft型はPhase5で追加 */}
 
@@ -107,6 +107,20 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
       )}
     </main>
   );
+}
+
+async function BettingLoader({ slug }: { slug: string }) {
+  const [killers, survivors] = await Promise.all([
+    db.select({ id: characters.id, name: characters.name }).from(characters).where(eq(characters.role, "killer")),
+    db.select({ id: characters.id, name: characters.name }).from(characters).where(eq(characters.role, "survivor")),
+  ]);
+
+  const characterOptions = [
+    ...killers.map((k) => ({ ...k, role: "killer" as const })),
+    ...survivors.map((s) => ({ ...s, role: "survivor" as const })),
+  ];
+
+  return <BettingTool plan={{ slug }} characters={characterOptions} />;
 }
 
 async function DataAccumulationLoader({

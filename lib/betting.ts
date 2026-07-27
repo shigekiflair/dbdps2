@@ -1,8 +1,21 @@
 import { db } from "@/db";
-import { bettingRounds, bettingVotes, users } from "@/db/schema";
+import { bettingRounds, bettingVotes, pointTransactions, users } from "@/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 
 export type BettingOption = { id: string; label: string };
+export type BettingMode = "win" | "exacta" | "trifecta";
+
+const PICK_COUNT: Record<BettingMode, number> = { win: 1, exacta: 2, trifecta: 3 };
+const POINTS: Record<BettingMode, number> = { win: 10, exacta: 30, trifecta: 50 };
+const REASON: Record<BettingMode, "betting_win" | "betting_exacta" | "betting_trifecta"> = {
+  win: "betting_win",
+  exacta: "betting_exacta",
+  trifecta: "betting_trifecta",
+};
+
+export function pickCountFor(mode: BettingMode) {
+  return PICK_COUNT[mode];
+}
 
 export async function getLatestRound(planId: string) {
   const rows = await db
@@ -14,8 +27,8 @@ export async function getLatestRound(planId: string) {
   return rows[0] ?? null;
 }
 
-export async function openRound(planId: string, question: string, options: BettingOption[]) {
-  const rows = await db.insert(bettingRounds).values({ planId, question, options }).returning();
+export async function openRound(planId: string, question: string, mode: BettingMode, options: BettingOption[]) {
+  const rows = await db.insert(bettingRounds).values({ planId, question, mode, options }).returning();
   return rows[0];
 }
 
@@ -26,73 +39,120 @@ export async function closeRound(roundId: string) {
     .where(eq(bettingRounds.id, roundId));
 }
 
-export async function resolveRound(roundId: string, correctOptionId: string) {
-  await db
-    .update(bettingRounds)
-    .set({ status: "resolved", correctOptionId, resolvedAt: new Date() })
-    .where(eq(bettingRounds.id, roundId));
-}
-
-/** 投票受付中のラウンドに再度投票を開くための取り消し操作（配信者が間違えて締切った場合など） */
+/** 再度投票を開くための取り消し操作（配信者が間違えて締切った場合など） */
 export async function reopenRound(roundId: string) {
   await db
     .update(bettingRounds)
-    .set({ status: "open", closedAt: null, resolvedAt: null, correctOptionId: null })
+    .set({ status: "open", closedAt: null, resolvedAt: null, correctPicks: null })
     .where(eq(bettingRounds.id, roundId));
 }
 
-export async function castVote(roundId: string, userId: string, optionId: string) {
+/**
+ * 正解を確定し、順序完全一致した投票にだけポイントを付与する（競馬と同じく部分点なし）。
+ * ポイントはpoint_transactionsに履歴として記録し、投票側にも参考値としてpointsAwardedを残す。
+ */
+export async function resolveRound(roundId: string, correctPicks: string[]) {
+  const [round] = await db.select().from(bettingRounds).where(eq(bettingRounds.id, roundId));
+  if (!round) throw new Error("round not found");
+  const mode = round.mode as BettingMode;
+
+  await db
+    .update(bettingRounds)
+    .set({ status: "resolved", correctPicks, resolvedAt: new Date() })
+    .where(eq(bettingRounds.id, roundId));
+
+  const votes = await db.select().from(bettingVotes).where(eq(bettingVotes.roundId, roundId));
+  const points = POINTS[mode];
+  const reason = REASON[mode];
+
+  for (const vote of votes) {
+    const picks = (vote.picks as string[]) ?? [];
+    const isExactMatch = picks.length === correctPicks.length && picks.every((p, i) => p === correctPicks[i]);
+    if (!isExactMatch) continue;
+
+    await db.update(bettingVotes).set({ pointsAwarded: points }).where(eq(bettingVotes.id, vote.id));
+    await db.insert(pointTransactions).values({
+      userId: vote.userId,
+      amount: points,
+      reason,
+      planId: round.planId,
+      roundId: round.id,
+    });
+  }
+}
+
+export async function castVote(roundId: string, userId: string, picks: string[]) {
+  const [round] = await db.select().from(bettingRounds).where(eq(bettingRounds.id, roundId));
+  if (!round) throw new Error("round not found");
+  if (round.status !== "open") throw new Error("このラウンドは投票を締め切っています");
+
+  const expected = pickCountFor(round.mode as BettingMode);
+  if (picks.length !== expected) throw new Error(`${expected}件選択してください`);
+  if (new Set(picks).size !== picks.length) throw new Error("同じ候補を重複して選ぶことはできません");
+
   await db
     .insert(bettingVotes)
-    .values({ roundId, userId, optionId })
+    .values({ roundId, userId, picks })
     .onConflictDoUpdate({
       target: [bettingVotes.roundId, bettingVotes.userId],
-      set: { optionId },
+      set: { picks },
     });
 }
 
-export async function getMyVote(roundId: string, userId: string) {
+export async function getMyVote(roundId: string, userId: string): Promise<string[] | null> {
   const rows = await db
-    .select({ optionId: bettingVotes.optionId })
+    .select({ picks: bettingVotes.picks })
     .from(bettingVotes)
     .where(and(eq(bettingVotes.roundId, roundId), eq(bettingVotes.userId, userId)));
-  return rows[0]?.optionId ?? null;
+  return (rows[0]?.picks as string[] | undefined) ?? null;
 }
 
-export async function getVoteCounts(roundId: string): Promise<Record<string, number>> {
+/** 「1位予想」の人気度だけを簡易集計する(2連単/3連単でも1着予想の傾向は分かるようにするため) */
+export async function getFirstPickCounts(roundId: string): Promise<Record<string, number>> {
   const rows = await db
-    .select({ optionId: bettingVotes.optionId, count: sql<number>`count(*)::int` })
+    .select({ picks: bettingVotes.picks })
     .from(bettingVotes)
-    .where(eq(bettingVotes.roundId, roundId))
-    .groupBy(bettingVotes.optionId);
-  return Object.fromEntries(rows.map((r) => [r.optionId, r.count]));
+    .where(eq(bettingVotes.roundId, roundId));
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    const picks = (row.picks as string[]) ?? [];
+    const first = picks[0];
+    if (!first) continue;
+    counts[first] = (counts[first] ?? 0) + 1;
+  }
+  return counts;
 }
 
-/**
- * 企画(plan)ごとの累積正解数ランキング。resolved済みの全ラウンドを対象に、
- * 投票したoptionIdがそのラウンドのcorrectOptionIdと一致した回数をuserIdごとに集計する。
- * 匿名視聴者はnameがnullになるため、表示側で「匿名視聴者」等に丸める。
- */
+/** 企画(plan)ごとの累積獲得ポイントランキング */
 export async function getLeaderboard(planId: string, limit = 20) {
   const rows = await db
     .select({
-      userId: bettingVotes.userId,
-      correctCount: sql<number>`count(*)::int`,
+      userId: pointTransactions.userId,
+      totalPoints: sql<number>`sum(${pointTransactions.amount})::int`,
+      name: users.name,
+    })
+    .from(pointTransactions)
+    .leftJoin(users, eq(pointTransactions.userId, users.id))
+    .where(eq(pointTransactions.planId, planId))
+    .groupBy(pointTransactions.userId, users.name)
+    .orderBy(desc(sql`sum(${pointTransactions.amount})`))
+    .limit(limit);
+  return rows;
+}
+
+/** サイト全体の累積獲得ポイントランキング（/rankingページ用） */
+export async function getGlobalLeaderboard(limit = 50) {
+  const rows = await db
+    .select({
+      userId: pointTransactions.userId,
+      totalPoints: sql<number>`sum(${pointTransactions.amount})::int`,
       name: users.name,
       image: users.image,
     })
-    .from(bettingVotes)
-    .innerJoin(bettingRounds, eq(bettingVotes.roundId, bettingRounds.id))
-    .leftJoin(users, eq(bettingVotes.userId, users.id))
-    .where(
-      and(
-        eq(bettingRounds.planId, planId),
-        eq(bettingRounds.status, "resolved"),
-        eq(bettingVotes.optionId, bettingRounds.correctOptionId)
-      )
-    )
-    .groupBy(bettingVotes.userId, users.name, users.image)
-    .orderBy(desc(sql`count(*)`))
+    .from(pointTransactions)
+    .leftJoin(users, eq(pointTransactions.userId, users.id))
+    .groupBy(pointTransactions.userId, users.name, users.image)
+    .orderBy(desc(sql`sum(${pointTransactions.amount})`))
     .limit(limit);
   return rows;
 }

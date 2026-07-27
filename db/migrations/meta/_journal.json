@@ -29,6 +29,13 @@
       "when": 1785136126278,
       "tag": "0003_chubby_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785186275058,
+      "tag": "0004_perfect_golden_guardian",
+      "breakpoints": true
     }
   ]
 }

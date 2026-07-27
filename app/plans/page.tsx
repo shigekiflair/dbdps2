@@ -17,6 +17,7 @@ export default async function PlansPage() {
         <span className="text-sm font-medium tracking-wide text-bone">TRIAL FORGE</span>
         <nav className="flex items-center gap-4 text-xs text-bone-muted">
           <a href="/plans/new">企画を作る</a>
+          <a href="/ranking">ランキング</a>
           <a href="/mypage">マイページ</a>
           <a href="/tools">ツール</a>
           <UserNav />

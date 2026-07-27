@@ -11,9 +11,10 @@ import {
   castVote as castVoteDb,
   getLatestRound,
   getMyVote,
-  getVoteCounts,
+  getFirstPickCounts,
   getLeaderboard,
   type BettingOption,
+  type BettingMode,
 } from "@/lib/betting";
 
 async function requireHost() {
@@ -23,14 +24,22 @@ async function requireHost() {
   }
 }
 
-export async function openBettingRound(slug: string, question: string, options: BettingOption[]) {
+export async function openBettingRound(
+  slug: string,
+  question: string,
+  mode: BettingMode,
+  options: BettingOption[]
+) {
   await requireHost();
   const plan = await getPlanBySlug(slug);
   if (!plan) throw new Error("plan not found");
   const cleanOptions = options.filter((o) => o.label.trim().length > 0);
-  if (cleanOptions.length < 2) throw new Error("選択肢は2つ以上入力してください");
+  const minRequired = mode === "win" ? 2 : mode === "exacta" ? 3 : 4;
+  if (cleanOptions.length < minRequired) {
+    throw new Error(`候補を${minRequired}件以上入力してください`);
+  }
   if (!question.trim()) throw new Error("お題を入力してください");
-  await openRoundDb(plan.id, question.trim(), cleanOptions);
+  await openRoundDb(plan.id, question.trim(), mode, cleanOptions);
 }
 
 export async function closeBettingRound(roundId: string) {
@@ -43,17 +52,17 @@ export async function reopenBettingRound(roundId: string) {
   await reopenRoundDb(roundId);
 }
 
-export async function resolveBettingRound(roundId: string, correctOptionId: string) {
+export async function resolveBettingRound(roundId: string, correctPicks: string[]) {
   await requireHost();
-  await resolveRoundDb(roundId, correctOptionId);
+  await resolveRoundDb(roundId, correctPicks);
 }
 
-export async function castBettingVote(roundId: string, optionId: string) {
+export async function castBettingVote(roundId: string, picks: string[]) {
   const identityId = await ensureCurrentIdentityId();
-  await castVoteDb(roundId, identityId, optionId);
+  await castVoteDb(roundId, identityId, picks);
 }
 
-/** ラウンドの現在状態・自分の投票・票数・ランキングをまとめて取得する。ポーリングで定期的に呼び出す想定 */
+/** ラウンドの現在状態・自分の投票・1着予想の人気度・ポイントランキングをまとめて取得する。ポーリングで定期的に呼び出す想定 */
 export async function getBettingState(slug: string) {
   const plan = await getPlanBySlug(slug);
   if (!plan) throw new Error("plan not found");
@@ -65,15 +74,15 @@ export async function getBettingState(slug: string) {
   ]);
 
   const identityId = await getCurrentIdentityId();
-  const [myVote, voteCounts] = await Promise.all([
+  const [myVote, firstPickCounts] = await Promise.all([
     round && identityId ? getMyVote(round.id, identityId) : Promise.resolve(null),
-    round ? getVoteCounts(round.id) : Promise.resolve({}),
+    round ? getFirstPickCounts(round.id) : Promise.resolve({}),
   ]);
 
   return {
     round,
     myVote,
-    voteCounts,
+    firstPickCounts,
     leaderboard,
     isHost: !!session?.user?.isAdmin,
     myUserId: identityId,

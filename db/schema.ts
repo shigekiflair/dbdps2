@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 /* =========================================================
    Enums
@@ -68,6 +68,15 @@ export const bettingRoundStatusEnum = pgEnum("betting_round_status", [
   "open",      // 投票受付中
   "closed",    // 投票締切・結果確定待ち
   "resolved",  // 正解確定済み
+]);
+
+// 単勝(1つ的中)・2連単(1位2位を順番通り)・3連単(1位2位3位を順番通り)。競馬と同じく完全一致のみ的中扱い
+export const bettingModeEnum = pgEnum("betting_mode", ["win", "exacta", "trifecta"]);
+
+export const pointTransactionReasonEnum = pgEnum("point_transaction_reason", [
+  "betting_win",
+  "betting_exacta",
+  "betting_trifecta",
 ]);
 
 /* =========================================================
@@ -257,32 +266,48 @@ export const planFavorites = pgTable("plan_favorites", {
    予想・ベッティング型（視聴者オッズ予想戦／裁判ガチャ等）
    ========================================================= */
 
-// 1つの「お題」。配信者が試合前後にquestion+optionsで作成し、視聴者はresolveされるまで投票できる。
+// 1つの「お題」。配信者が試合前後にquestion+options+modeで作成し、視聴者はresolveされるまで投票できる。
 // 1企画(plan)に対して同時に有効なラウンドは基本1つの運用を想定（新しいラウンドを開始すれば前のラウンドは
 // 過去ログとして残り続ける。getLatestRoundで最新の1件だけを「現在のお題」として扱う）。
 export const bettingRounds = pgTable("betting_rounds", {
   id: uuid("id").defaultRandom().primaryKey(),
   planId: uuid("plan_id").notNull().references(() => plans.id, { onDelete: "cascade" }),
   question: text("question").notNull(),
-  // [{ id: string, label: string }] の配列。idはoption内でユニークであればよい(uuidである必要はない)
+  mode: bettingModeEnum("mode").default("win").notNull(),
+  // [{ id: string, label: string }] の配列。idはキャラクターの場合characters.id、自由入力の場合はランダム文字列
   options: jsonb("options").notNull(),
   status: bettingRoundStatusEnum("status").default("open").notNull(),
-  correctOptionId: text("correct_option_id"),
+  // 正解の並び。単勝は1件、2連単は2件、3連単は3件のoptionId配列(順序が意味を持つ)
+  correctPicks: jsonb("correct_picks"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   closedAt: timestamp("closed_at", { mode: "date" }),
   resolvedAt: timestamp("resolved_at", { mode: "date" }),
 });
 
 // 各視聴者(匿名Cookie or 実ユーザー)の1票。ラウンドがopenの間は投票し直し(上書き)できる。
+// picksは順序を持つoptionId配列(単勝なら1件、2連単なら2件、3連単なら3件)
 export const bettingVotes = pgTable("betting_votes", {
   id: uuid("id").defaultRandom().primaryKey(),
   roundId: uuid("round_id").notNull().references(() => bettingRounds.id, { onDelete: "cascade" }),
   userId: uuid("user_id").notNull(),
-  optionId: text("option_id").notNull(),
+  picks: jsonb("picks").default(sql`'[]'::jsonb`).notNull(),
+  pointsAwarded: integer("points_awarded").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({
   uniquePerUserRound: uniqueIndex("betting_votes_user_round_unique").on(t.roundId, t.userId),
 }));
+
+// サイト全体のポイント履歴。ベッティング以外の獲得経路にも今後拡張できるよう理由(reason)を持たせている。
+// 合計値はここから都度SUMして算出する(累積カラムを別で持つと二重管理になるため)
+export const pointTransactions = pgTable("point_transactions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull(),
+  amount: integer("amount").notNull(),
+  reason: pointTransactionReasonEnum("reason").notNull(),
+  planId: uuid("plan_id").references(() => plans.id, { onDelete: "set null" }),
+  roundId: uuid("round_id").references(() => bettingRounds.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 /* =========================================================
    認証（Auth.js / @auth/drizzle-adapter）
