@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
-import { getPlanBySlug } from "@/lib/plans";
+import { getPlanBySlug, getPlanById } from "@/lib/plans";
 import { ensureCurrentIdentityId, getCurrentIdentityId } from "@/lib/identity";
 import {
   openRound as openRoundDb,
@@ -13,14 +13,37 @@ import {
   getMyVote,
   getFirstPickCounts,
   getLeaderboard,
+  getRoundPlanId,
   type BettingOption,
   type BettingMode,
 } from "@/lib/betting";
 
-async function requireHost() {
+/**
+ * 「ホスト」＝サイト全体の管理者(isAdmin)、または、その企画自体を作った本人(plan.createdBy)。
+ * 運営がキュレーションした企画(createdByがnull)はisAdminのみがホスト操作できる。
+ */
+async function isHostForPlan(createdBy: string | null): Promise<boolean> {
   const session = await auth();
-  if (!session?.user?.isAdmin) {
-    throw new Error("この操作は配信者アカウントでのみ行えます");
+  if (!session?.user?.id) return false;
+  if (session.user.isAdmin) return true;
+  return !!createdBy && createdBy === session.user.id;
+}
+
+async function requireHostBySlug(slug: string) {
+  const plan = await getPlanBySlug(slug);
+  if (!plan) throw new Error("plan not found");
+  if (!(await isHostForPlan(plan.createdBy))) {
+    throw new Error("この操作は企画の作成者または配信者アカウントでのみ行えます");
+  }
+  return plan;
+}
+
+async function requireHostByRoundId(roundId: string) {
+  const planId = await getRoundPlanId(roundId);
+  if (!planId) throw new Error("round not found");
+  const plan = await getPlanById(planId);
+  if (!(await isHostForPlan(plan?.createdBy ?? null))) {
+    throw new Error("この操作は企画の作成者または配信者アカウントでのみ行えます");
   }
 }
 
@@ -30,9 +53,7 @@ export async function openBettingRound(
   mode: BettingMode,
   options: BettingOption[]
 ) {
-  await requireHost();
-  const plan = await getPlanBySlug(slug);
-  if (!plan) throw new Error("plan not found");
+  const plan = await requireHostBySlug(slug);
   const cleanOptions = options.filter((o) => o.label.trim().length > 0);
   const minRequired = mode === "win" ? 2 : mode === "exacta" ? 3 : 4;
   if (cleanOptions.length < minRequired) {
@@ -43,17 +64,17 @@ export async function openBettingRound(
 }
 
 export async function closeBettingRound(roundId: string) {
-  await requireHost();
+  await requireHostByRoundId(roundId);
   await closeRoundDb(roundId);
 }
 
 export async function reopenBettingRound(roundId: string) {
-  await requireHost();
+  await requireHostByRoundId(roundId);
   await reopenRoundDb(roundId);
 }
 
 export async function resolveBettingRound(roundId: string, correctPicks: string[]) {
-  await requireHost();
+  await requireHostByRoundId(roundId);
   await resolveRoundDb(roundId, correctPicks);
 }
 
@@ -67,9 +88,9 @@ export async function getBettingState(slug: string) {
   const plan = await getPlanBySlug(slug);
   if (!plan) throw new Error("plan not found");
 
-  const [round, session, leaderboard] = await Promise.all([
+  const [round, hostOk, leaderboard] = await Promise.all([
     getLatestRound(plan.id),
-    auth(),
+    isHostForPlan(plan.createdBy),
     getLeaderboard(plan.id),
   ]);
 
@@ -84,7 +105,7 @@ export async function getBettingState(slug: string) {
     myVote,
     firstPickCounts,
     leaderboard,
-    isHost: !!session?.user?.isAdmin,
+    isHost: hostOk,
     myUserId: identityId,
   };
 }

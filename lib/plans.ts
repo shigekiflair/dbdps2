@@ -18,6 +18,11 @@ export async function getPlanBySlug(slug: string) {
   return rows[0] ?? null;
 }
 
+export async function getPlanById(planId: string) {
+  const rows = await db.select().from(plans).where(eq(plans.id, planId));
+  return rows[0] ?? null;
+}
+
 /**
  * 閲覧権限を考慮したうえで企画を取得する。
  * - 運営キュレーション企画(createdBy=null): 常に閲覧可

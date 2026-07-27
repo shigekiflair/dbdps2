@@ -17,6 +17,11 @@ export function pickCountFor(mode: BettingMode) {
   return PICK_COUNT[mode];
 }
 
+export async function getRoundPlanId(roundId: string): Promise<string | null> {
+  const rows = await db.select({ planId: bettingRounds.planId }).from(bettingRounds).where(eq(bettingRounds.id, roundId));
+  return rows[0]?.planId ?? null;
+}
+
 export async function getLatestRound(planId: string) {
   const rows = await db
     .select()
