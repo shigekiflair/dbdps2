@@ -11,12 +11,10 @@ import {
 } from "@/app/betting/actions";
 
 type BettingOption = { id: string; label: string };
-type BettingMode = "win" | "exacta" | "trifecta";
 type RoundStatus = "open" | "closed" | "resolved";
 type Round = {
   id: string;
   question: string;
-  mode: BettingMode;
   options: BettingOption[];
   status: RoundStatus;
   correctPicks: string[] | null;
@@ -39,30 +37,31 @@ const STATUS_LABEL: Record<RoundStatus, string> = {
   resolved: "結果発表済み",
 };
 
-const MODE_LABEL: Record<BettingMode, string> = { win: "単勝", exacta: "2連単", trifecta: "3連単" };
-const MODE_PICK_COUNT: Record<BettingMode, number> = { win: 1, exacta: 2, trifecta: 3 };
-const MODE_POINTS: Record<BettingMode, number> = { win: 10, exacta: 30, trifecta: 50 };
-const ORDINAL = ["1着", "2着", "3着"];
+const POINTS_PER_CORRECT = 10;
 
 function newOptionId() {
   return Math.random().toString(36).slice(2, 8);
 }
 
+/**
+ * YouTubeライブのアンケート機能に近いイメージのシンプルな1問1答型投票。
+ * 「配信者が質問と選択肢を作る → 視聴者が1つ選んで投票 → 配信者が締め切る → 配信者が正解を選ぶ
+ *  → 正解を選んでいた視聴者にポイントが付く」という一直線の流れだけを扱う。
+ */
 export function BettingTool({ plan, characters = [] }: { plan: { slug: string }; characters?: CharacterOption[] }) {
   const [state, setState] = useState<BettingState | null>(null);
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [question, setQuestion] = useState("");
-  const [mode, setMode] = useState<BettingMode>("win");
   const [optionDrafts, setOptionDrafts] = useState<BettingOption[]>([
     { id: newOptionId(), label: "" },
     { id: newOptionId(), label: "" },
   ]);
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<Set<string>>(new Set());
 
-  const [myPicksDraft, setMyPicksDraft] = useState<string[]>([]);
-  const [resolvePicksDraft, setResolvePicksDraft] = useState<string[]>([]);
+  const [myPick, setMyPick] = useState<string | null>(null);
+  const [resolvePick, setResolvePick] = useState<string | null>(null);
 
   function refresh() {
     startTransition(async () => {
@@ -83,14 +82,14 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
   }, [plan.slug]);
 
   useEffect(() => {
-    if (state?.myVote) setMyPicksDraft(state.myVote);
+    setMyPick(state?.myVote?.[0] ?? null);
   }, [state?.round?.id, state?.myVote]);
 
   function updateOptionDraft(id: string, label: string) {
     setOptionDrafts((prev) => prev.map((o) => (o.id === id ? { ...o, label } : o)));
   }
   function addOptionDraft() {
-    if (optionDrafts.length >= 12) return;
+    if (optionDrafts.length >= 8) return;
     setOptionDrafts((prev) => [...prev, { id: newOptionId(), label: "" }]);
   }
   function removeOptionDraft(id: string) {
@@ -115,7 +114,7 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
 
     startTransition(async () => {
       try {
-        await openBettingRound(plan.slug, question, mode, options);
+        await openBettingRound(plan.slug, question, "win", options);
         setQuestion("");
         setOptionDrafts([
           { id: newOptionId(), label: "" },
@@ -125,26 +124,17 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
         refresh();
       } catch (err) {
         console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "ラウンドの作成に失敗しました。");
+        setErrorMessage(err instanceof Error ? err.message : "質問の作成に失敗しました。");
       }
     });
   }
 
-  function togglePick(draft: string[], setDraft: (v: string[]) => void, optionId: string, need: number) {
-    if (draft.includes(optionId)) {
-      setDraft(draft.filter((id) => id !== optionId));
-      return;
-    }
-    if (draft.length >= need) return;
-    setDraft([...draft, optionId]);
-  }
-
   function submitVote() {
-    if (!state?.round) return;
+    if (!state?.round || !myPick) return;
     setErrorMessage(null);
     startTransition(async () => {
       try {
-        await castBettingVote(state.round!.id, myPicksDraft);
+        await castBettingVote(state.round!.id, [myPick]);
         refresh();
       } catch (err) {
         console.error(err);
@@ -171,7 +161,7 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
     startTransition(async () => {
       try {
         await reopenBettingRound(state.round!.id);
-        setResolvePicksDraft([]);
+        setResolvePick(null);
         refresh();
       } catch (err) {
         console.error(err);
@@ -181,12 +171,12 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
   }
 
   function resolve() {
-    if (!state?.round) return;
-    const labels = resolvePicksDraft.map((id) => state.round!.options.find((o) => o.id === id)?.label).join(" → ");
-    if (!window.confirm(`「${labels}」を正解として確定します。よろしいですか？`)) return;
+    if (!state?.round || !resolvePick) return;
+    const label = state.round.options.find((o) => o.id === resolvePick)?.label;
+    if (!window.confirm(`「${label}」を正解として確定します。的中した視聴者に${POINTS_PER_CORRECT}pt付与されます。よろしいですか？`)) return;
     startTransition(async () => {
       try {
-        await resolveBettingRound(state.round!.id, resolvePicksDraft);
+        await resolveBettingRound(state.round!.id, [resolvePick]);
         refresh();
       } catch (err) {
         console.error(err);
@@ -200,9 +190,8 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
   }
 
   const { round, firstPickCounts, leaderboard, isHost, myUserId } = state;
-  const totalFirstPicks = Object.values(firstPickCounts).reduce((a, b) => a + b, 0);
+  const totalVotes = Object.values(firstPickCounts).reduce((a, b) => a + b, 0);
   const showCounts = round && round.status !== "open";
-  const need = round ? MODE_PICK_COUNT[round.mode] : 1;
 
   return (
     <div>
@@ -212,82 +201,76 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
         </div>
       )}
 
-      {round ? (
+      {isHost && !round && (
+        <p className="mb-3 text-[11px] text-bone-muted">
+          YouTubeライブのアンケート機能のようなイメージです。質問と選択肢を作って公開すると、視聴者が1つ選んで投票できます。
+        </p>
+      )}
+
+      {/* --- 現在の質問 --- */}
+      {round && (
         <div className="mb-6 rounded-lg border border-[#2C2C2A] bg-ash p-4">
           <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span
-                className={`rounded px-2 py-1 text-[10px] ${
-                  round.status === "open"
-                    ? "bg-fog-teal-dark text-[#9FE1CB]"
-                    : round.status === "closed"
-                      ? "bg-[#412402] text-[#FAC775]"
-                      : "bg-blood-dark text-[#F5C4B3]"
-                }`}
-              >
-                {STATUS_LABEL[round.status]}
-              </span>
-              <span className="rounded bg-[#3A1E52] px-2 py-1 text-[10px] text-[#D9C2F0]">
-                {MODE_LABEL[round.mode]}（的中で{MODE_POINTS[round.mode]}pt）
-              </span>
-            </div>
-            {totalFirstPicks > 0 && showCounts && (
-              <span className="text-[10px] text-bone-muted">1着予想 計{totalFirstPicks}票</span>
-            )}
+            <span
+              className={`rounded px-2 py-1 text-[10px] ${
+                round.status === "open"
+                  ? "bg-fog-teal-dark text-[#9FE1CB]"
+                  : round.status === "closed"
+                    ? "bg-[#412402] text-[#FAC775]"
+                    : "bg-blood-dark text-[#F5C4B3]"
+              }`}
+            >
+              {STATUS_LABEL[round.status]}
+            </span>
+            {totalVotes > 0 && showCounts && <span className="text-[10px] text-bone-muted">計{totalVotes}票</span>}
           </div>
           <p className="mb-3 text-sm font-medium text-bone">{round.question}</p>
 
           {round.status === "resolved" && round.correctPicks && (
             <p className="mb-3 rounded-md border border-fog-teal bg-fog-teal-dark px-3 py-2 text-xs text-[#9FE1CB]">
-              正解：{round.correctPicks.map((id) => round.options.find((o) => o.id === id)?.label ?? "?").join(" → ")}
+              正解：{round.options.find((o) => o.id === round.correctPicks![0])?.label ?? "?"}
+              　的中した人に{POINTS_PER_CORRECT}pt付与しました
             </p>
           )}
 
+          {/* 投票（openの間だけ操作可） */}
           {round.status === "open" && (
             <div className="space-y-2">
-              <p className="text-[11px] text-bone-muted">
-                {need === 1
-                  ? "候補を1つ選んでください"
-                  : `候補を選んだ順に${need}件タップしてください（${ORDINAL.slice(0, need).join("・")}の順）`}
-              </p>
               <div className="flex flex-wrap gap-2">
-                {round.options.map((opt) => {
-                  const pickIndex = myPicksDraft.indexOf(opt.id);
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => togglePick(myPicksDraft, setMyPicksDraft, opt.id, need)}
-                      className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
-                        pickIndex >= 0 ? "border-blood bg-blood-dark text-[#F5C4B3]" : "border-[#2C2C2A] text-bone hover:border-[#444441]"
-                      }`}
-                    >
-                      {pickIndex >= 0 && need > 1 && <span className="mr-1 font-bold">{pickIndex + 1}.</span>}
-                      {opt.label}
-                    </button>
-                  );
-                })}
+                {round.options.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setMyPick(opt.id)}
+                    className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
+                      myPick === opt.id ? "border-blood bg-blood-dark text-[#F5C4B3]" : "border-[#2C2C2A] text-bone hover:border-[#444441]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
               <button
-                disabled={isPending || myPicksDraft.length !== need}
+                disabled={isPending || !myPick}
                 onClick={submitVote}
-                className="mt-2 rounded-lg bg-blood px-4 py-2 text-xs font-medium text-[#FCEBEB] disabled:opacity-50"
+                className="mt-1 rounded-lg bg-blood px-4 py-2 text-xs font-medium text-[#FCEBEB] disabled:opacity-50"
               >
-                この予想で投票する
+                {state.myVote ? "投票を変更する" : "投票する"}
               </button>
             </div>
           )}
 
+          {/* 締切後の得票表示 */}
           {showCounts && round.status !== "resolved" && (
             <div className="space-y-1.5">
               {round.options.map((opt) => {
                 const count = firstPickCounts[opt.id] ?? 0;
-                const pct = totalFirstPicks > 0 ? Math.round((count / totalFirstPicks) * 100) : 0;
+                const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
                 return (
                   <div key={opt.id} className="relative overflow-hidden rounded-md border border-[#2C2C2A] px-3 py-1.5 text-xs">
                     <span className="absolute inset-y-0 left-0 bg-white/5" style={{ width: `${pct}%` }} aria-hidden />
                     <span className="relative flex items-center justify-between">
                       <span className="text-bone">{opt.label}</span>
-                      <span className="text-[10px] text-bone-muted">1着予想 {count}票・{pct}%</span>
+                      <span className="text-[10px] text-bone-muted">{count}票・{pct}%</span>
                     </span>
                   </div>
                 );
@@ -304,33 +287,27 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
               )}
               {round.status === "closed" && (
                 <div>
-                  <p className="mb-2 text-[11px] text-bone-muted">
-                    正解を{ORDINAL.slice(0, need).join("・")}の順にタップして選んでください
-                  </p>
+                  <p className="mb-2 text-[11px] text-bone-muted">正解を1つ選んでください</p>
                   <div className="flex flex-wrap gap-2">
-                    {round.options.map((opt) => {
-                      const pickIndex = resolvePicksDraft.indexOf(opt.id);
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => togglePick(resolvePicksDraft, setResolvePicksDraft, opt.id, need)}
-                          className={`rounded-md border px-3 py-1.5 text-xs ${
-                            pickIndex >= 0 ? "border-fog-teal bg-fog-teal-dark text-[#9FE1CB]" : "border-[#2C2C2A] text-bone-muted"
-                          }`}
-                        >
-                          {pickIndex >= 0 && need > 1 && <span className="mr-1 font-bold">{pickIndex + 1}.</span>}
-                          {opt.label}
-                        </button>
-                      );
-                    })}
+                    {round.options.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setResolvePick(opt.id)}
+                        className={`rounded-md border px-3 py-1.5 text-xs ${
+                          resolvePick === opt.id ? "border-fog-teal bg-fog-teal-dark text-[#9FE1CB]" : "border-[#2C2C2A] text-bone-muted"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                   <div className="mt-2 flex gap-2">
                     <button
-                      disabled={resolvePicksDraft.length !== need}
+                      disabled={!resolvePick}
                       onClick={resolve}
                       className="rounded-lg bg-fog-teal-dark px-4 py-2 text-xs font-medium text-[#9FE1CB] disabled:opacity-50"
                     >
-                      この結果で確定する
+                      この正解で確定する（的中者に{POINTS_PER_CORRECT}pt）
                     </button>
                     <button onClick={reopen} className="rounded-lg border border-[#2C2C2A] px-3 py-2 text-[11px] text-bone-muted">
                       投票を再開する
@@ -341,41 +318,26 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
             </div>
           )}
         </div>
-      ) : (
-        <p className="mb-6 text-xs text-bone-muted">
-          まだお題が出ていません。{isHost ? "下のフォームから最初のお題を作成してください。" : "配信者がお題を出すまでお待ちください。"}
-        </p>
       )}
 
+      {/* --- 配信者用: 質問を作る（お題が無いときは最初から開いた状態で表示） --- */}
       {isHost && (
-        <details className="mb-6 rounded-lg border border-[#2C2C2A] bg-ash p-4">
-          <summary className="cursor-pointer text-xs font-medium text-bone">新しいお題を作る</summary>
+        <details className="mb-6 rounded-lg border border-[#2C2C2A] bg-ash p-4" open={!round}>
+          <summary className="cursor-pointer text-xs font-medium text-bone">
+            {round ? "次の質問を作る" : "質問を作る"}
+          </summary>
           <div className="mt-3 space-y-3">
             <input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="例：今回の試合、誰が最初にダウンする？"
+              placeholder="例：今回脱出できるサバイバーは何人？"
               className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
             />
-
-            <div className="flex gap-2">
-              {(["win", "exacta", "trifecta"] as BettingMode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`rounded-full px-3 py-1.5 text-[11px] ${
-                    mode === m ? "bg-blood text-[#FCEBEB]" : "border border-[#2C2C2A] text-bone-muted"
-                  }`}
-                >
-                  {MODE_LABEL[m]}（{MODE_POINTS[m]}pt）
-                </button>
-              ))}
-            </div>
 
             {characters.length > 0 && (
               <details className="rounded-md border border-[#2C2C2A] p-2">
                 <summary className="cursor-pointer text-[11px] text-bone-muted">
-                  キラー/サバイバーから候補を選ぶ（{selectedCharacterIds.size}件選択中）
+                  キラー/サバイバーから選択肢を選ぶ（{selectedCharacterIds.size}件選択中）
                 </summary>
                 <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
                   {characters.map((c) => (
@@ -394,13 +356,13 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
             )}
 
             <div className="space-y-2">
-              <p className="text-[11px] text-bone-muted">自由入力の候補（キャラ以外の候補を追加したい場合）</p>
+              <p className="text-[11px] text-bone-muted">選択肢（キャラ以外を追加したい場合はこちら）</p>
               {optionDrafts.map((o, i) => (
                 <div key={o.id} className="flex items-center gap-2">
                   <input
                     value={o.label}
                     onChange={(e) => updateOptionDraft(o.id, e.target.value)}
-                    placeholder={`候補${i + 1}`}
+                    placeholder={`選択肢${i + 1}`}
                     className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
                   />
                   {optionDrafts.length > 2 && (
@@ -413,20 +375,21 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
             </div>
             <div className="flex items-center justify-between">
               <button onClick={addOptionDraft} className="text-[11px] text-bone-muted underline">
-                + 候補を追加
+                + 選択肢を追加
               </button>
               <button
                 disabled={isPending}
                 onClick={submitNewRound}
                 className="rounded-lg bg-blood px-4 py-2 text-xs font-medium text-[#FCEBEB] disabled:opacity-60"
               >
-                このお題で開始する
+                この質問を公開する
               </button>
             </div>
           </div>
         </details>
       )}
 
+      {/* --- 累積ポイントランキング --- */}
       <div className="rounded-lg border border-[#2C2C2A] bg-ash p-4">
         <div className="mb-3 flex items-center justify-between">
           <p className="text-xs font-medium text-bone">獲得ポイントランキング（この企画の累積）</p>
@@ -435,7 +398,7 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
           </a>
         </div>
         {leaderboard.length === 0 ? (
-          <p className="text-[11px] text-bone-muted">まだ結果発表されたラウンドがありません。</p>
+          <p className="text-[11px] text-bone-muted">まだ結果発表された質問がありません。</p>
         ) : (
           <ol className="space-y-1.5">
             {leaderboard.map((row, i) => (
