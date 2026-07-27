@@ -46,7 +46,7 @@ export function StringListPlanForm({ type }: { type: StringListType }) {
           items: itemsText.split("\n"),
           threshold: type === "escalation" ? threshold : undefined,
         });
-        router.push(`/plans/${slug}`);
+        router.push(`/plans/${slug}?created=1`);
       } catch (err) {
         console.error(err);
         setErrorMessage(err instanceof Error ? err.message : "作成に失敗しました。");

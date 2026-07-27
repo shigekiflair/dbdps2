@@ -20,7 +20,10 @@ export default async function NewPlanPage() {
         ← マイページへ
       </a>
       <h1 className="mb-1 text-lg font-medium text-bone">企画を作る</h1>
-      <p className="mb-6 text-xs text-bone-muted">作りたい企画のタイプを選んでください。</p>
+      <p className="mb-3 text-xs text-bone-muted">作りたい企画のタイプを選んでください。</p>
+      <p className="mb-6 rounded-lg border border-amber bg-[#2A1D08] px-3 py-2 text-[11px] text-amber">
+        作成した企画は、みんなが見る「企画一覧」には表示されません。<a href="/mypage" className="underline">マイページ</a>の「自分の企画」に一覧で表示され、そこからいつでも開けます。
+      </p>
 
       <div className="mb-3">
         <a

@@ -44,7 +44,7 @@ export function TierListPlanForm({
           mode === "edit" && slug
             ? await updateTierListPlan({ slug, title, description, visibility, tiers, assignments })
             : await createTierListPlan({ title, description, visibility, tiers, assignments });
-        router.push(`/plans/${result.slug}`);
+        router.push(mode === "edit" ? `/plans/${result.slug}?updated=1` : `/plans/${result.slug}?created=1`);
       } catch (err) {
         console.error(err);
         setErrorMessage(err instanceof Error ? err.message : "保存に失敗しました。");

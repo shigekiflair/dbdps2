@@ -19,8 +19,15 @@ import { BettingTool } from "@/components/tools/betting-tool";
 import { TierListView } from "@/components/tools/tier-list-tool";
 import { SharePageButton } from "@/components/share-page-button";
 
-export default async function PlanDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PlanDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ created?: string; updated?: string }>;
+}) {
   const { slug } = await params;
+  const { created, updated } = await searchParams;
   const viewerId = await getCurrentIdentityId();
   const plan = await getViewablePlanBySlug(slug, viewerId);
   if (!plan) notFound();
@@ -50,6 +57,17 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
       <p className="mb-5 border-b border-[#2C2C2A] pb-5 text-xs leading-relaxed text-bone-muted">
         {plan.description}
       </p>
+
+      {(created === "1" || updated === "1") && plan.createdBy && (
+        <div className="mb-5 rounded-lg border border-fog-teal bg-fog-teal-dark px-4 py-3 text-xs text-[#9FE1CB]">
+          ✓ {created === "1" ? "企画を作成しました。" : "企画を更新しました。"}
+          この企画はこのURL（<span className="underline">{`/plans/${plan.slug}`}</span>）でいつでも開けます。次回からは
+          <a href="/mypage" className="mx-1 font-medium underline">
+            マイページ
+          </a>
+          の「自分の企画」からも一覧で見つけられます。
+        </div>
+      )}
 
       {plan.type === "lottery" && pool?.source !== "character_build" && (
         <LotteryTool
@@ -94,7 +112,11 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
 
       {plan.createdBy && plan.createdBy === viewerId && (
         <div className="mt-6 border-t border-[#2C2C2A] pt-4 text-[11px] text-bone-muted">
-          この企画はあなたが作成しました。
+          この企画はあなたが作成しました（
+          <a href="/mypage" className="underline">
+            マイページ
+          </a>
+          の「自分の企画」から一覧できます）。
           {plan.type === "tier_list" && (
             <a href={`/plans/${plan.slug}/edit`} className="ml-2 underline">
               編集する

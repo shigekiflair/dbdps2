@@ -18,11 +18,24 @@ export default async function PlansPage() {
         <nav className="flex items-center gap-4 text-xs text-bone-muted">
           <a href="/plans/new">企画を作る</a>
           <a href="/ranking">ランキング</a>
-          <a href="/mypage">マイページ</a>
+          <a
+            href="/mypage"
+            className="rounded-full border border-amber px-3 py-1 font-medium text-amber"
+          >
+            マイページ
+          </a>
           <a href="/tools">ツール</a>
           <UserNav />
         </nav>
       </header>
+
+      <p className="mb-4 text-[11px] text-bone-muted">
+        自分で作った企画（お気に入り・ティア表・投票企画など）は、この一覧ではなく
+        <a href="/mypage" className="mx-1 text-amber underline">
+          マイページ
+        </a>
+        にまとまって表示されます。
+      </p>
 
       <div className="mb-5 flex items-center justify-between rounded-card border border-[#2C2C2A] bg-ash px-5 py-4">
         <div>

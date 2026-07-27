@@ -22,6 +22,8 @@ export default async function MyPage() {
         </a>
         <nav className="flex items-center gap-4 text-xs text-bone-muted">
           <a href="/plans">企画一覧</a>
+          <a href="/ranking">ランキング</a>
+          <span className="rounded-full border border-amber px-3 py-1 font-medium text-amber">マイページ</span>
           <a href="/tools">ツール</a>
           <UserNav />
         </nav>
