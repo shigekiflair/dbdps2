@@ -32,6 +32,14 @@ export const planTypeEnum = pgEnum("plan_type", [
   "trigger_internal",     // イベントトリガー型（配信者内）
   "draft",                // ドラフト型
   "betting",              // 予想・ベッティング型
+  "tier_list",            // ティア表（配信者が作成し公開する静的コンテンツ）
+]);
+
+// ユーザー作成企画の公開範囲。既存の運営キュレーション企画(createdByがnull)には適用されない。
+export const planVisibilityEnum = pgEnum("plan_visibility", [
+  "private",   // 自分だけ
+  "unlisted",  // URLを知っている人だけ
+  "public",    // 「みんなの企画」に掲載（Phase2で解禁）
 ]);
 
 export const planTargetEnum = pgEnum("plan_target", [
@@ -197,6 +205,12 @@ export const plans = pgTable("plans", {
   isPublished: boolean("is_published").default(false).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
 
+  // ユーザー作成企画用。運営がCSV/シードで投入した既存企画はnullのまま(常に公開扱い)。
+  // ユーザーが/plans/newから作成した企画はここに作成者のuserIdが入る。
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  // createdByがnullの企画では実質未使用(常に公開扱い)。ユーザー作成企画のみこの値で制御する
+  visibility: planVisibilityEnum("visibility").default("public").notNull(),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => ({
@@ -350,10 +364,14 @@ export const addonsRelations = relations(addons, ({ one }) => ({
   }),
 }));
 
-export const plansRelations = relations(plans, ({ many }) => ({
+export const plansRelations = relations(plans, ({ one, many }) => ({
   results: many(planResults),
   progress: many(planProgress),
   favorites: many(planFavorites),
+  creator: one(users, {
+    fields: [plans.createdBy],
+    references: [users.id],
+  }),
 }));
 
 export const planFavoritesRelations = relations(planFavorites, ({ one }) => ({

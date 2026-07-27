@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { characters, perks, items } from "@/db/schema";
-import { getPlanBySlug } from "@/lib/plans";
+import { getViewablePlanBySlug } from "@/lib/plans";
 import { planTypeBadge } from "@/lib/plan-ui";
 import { getCurrentIdentityId } from "@/lib/identity";
 import { getProgress } from "@/lib/progress";
@@ -16,11 +16,13 @@ import { TargetPickTool } from "@/components/tools/target-pick-tool";
 import { EscalationTool } from "@/components/tools/escalation-tool";
 import { TriggerTool } from "@/components/tools/trigger-tool";
 import { BettingTool } from "@/components/tools/betting-tool";
+import { TierListView } from "@/components/tools/tier-list-tool";
 import { SharePageButton } from "@/components/share-page-button";
 
 export default async function PlanDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const plan = await getPlanBySlug(slug);
+  const viewerId = await getCurrentIdentityId();
+  const plan = await getViewablePlanBySlug(slug, viewerId);
   if (!plan) notFound();
 
   const badge = planTypeBadge(plan.type);
@@ -87,7 +89,22 @@ export default async function PlanDetailPage({ params }: { params: Promise<{ slu
         <TriggerTool plan={{ slug: plan.slug }} items={pool?.customPool ?? []} />
       )}
       {plan.type === "betting" && <BettingTool plan={{ slug: plan.slug }} />}
+      {plan.type === "tier_list" && <TierListView poolConfig={plan.poolConfig as any} />}
       {/* draft型はPhase5で追加 */}
+
+      {plan.createdBy && plan.createdBy === viewerId && (
+        <div className="mt-6 border-t border-[#2C2C2A] pt-4 text-[11px] text-bone-muted">
+          この企画はあなたが作成しました。
+          {plan.type === "tier_list" && (
+            <a href={`/plans/${plan.slug}/edit`} className="ml-2 underline">
+              編集する
+            </a>
+          )}
+          <span className="ml-2">
+            公開範囲：{plan.visibility === "private" ? "自分だけ" : plan.visibility === "unlisted" ? "リンクを知っている人だけ" : "公開"}
+          </span>
+        </div>
+      )}
     </main>
   );
 }

@@ -9,6 +9,7 @@ const TYPE_BADGES: Record<string, { label: string; className: string }> = {
   trigger_internal: { label: "トリガー型", className: "bg-fog-teal-dark text-[#9FE1CB]" },
   draft: { label: "ドラフト型", className: "bg-[#042C53] text-[#B5D4F4]" },
   betting: { label: "予想型", className: "bg-[#412402] text-[#FAC775]" },
+  tier_list: { label: "ティア表", className: "bg-[#3A1E52] text-[#D9C2F0]" },
 };
 
 export function planTypeBadge(type: string) {

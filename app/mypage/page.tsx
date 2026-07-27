@@ -1,11 +1,18 @@
 import { getFavoritePlans } from "@/lib/favorites";
+import { getUserPlans } from "@/lib/plans";
 import { getCurrentIdentityId } from "@/lib/identity";
+import { auth } from "@/auth";
 import { PlanCard } from "@/components/plan-card";
+import { MyPlanCard } from "@/components/my-plan-card";
 import { UserNav } from "@/components/user-nav";
 
 export default async function MyPage() {
   const identityId = await getCurrentIdentityId();
-  const favoritePlans = identityId ? await getFavoritePlans(identityId) : [];
+  const session = await auth();
+  const [favoritePlans, myPlans] = await Promise.all([
+    identityId ? getFavoritePlans(identityId) : Promise.resolve([]),
+    session?.user?.id ? getUserPlans(session.user.id) : Promise.resolve([]),
+  ]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
@@ -37,6 +44,35 @@ export default async function MyPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {favoritePlans.map((p) => (
             <PlanCard key={p.slug} plan={p} favorited />
+          ))}
+        </div>
+      )}
+
+      <div className="mb-4 mt-10 flex items-center justify-between border-t border-[#2C2C2A] pt-8">
+        <h2 className="text-sm font-medium text-bone">自分の企画</h2>
+        {session?.user?.id && (
+          <a href="/plans/new" className="rounded-lg bg-blood px-3 py-1.5 text-xs font-medium text-[#FCEBEB]">
+            + 新しい企画を作る
+          </a>
+        )}
+      </div>
+
+      {!session?.user?.id ? (
+        <div className="rounded-card border border-[#2C2C2A] bg-ash px-5 py-10 text-center text-xs text-bone-muted">
+          企画を作るにはログインが必要です。
+          <br />
+          <a href="/login?callbackUrl=/plans/new" className="mt-3 inline-block text-bone underline">
+            ログインする
+          </a>
+        </div>
+      ) : myPlans.length === 0 ? (
+        <div className="rounded-card border border-[#2C2C2A] bg-ash px-5 py-10 text-center text-xs text-bone-muted">
+          まだ企画を作成していません。
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {myPlans.map((p) => (
+            <MyPlanCard key={p.id} plan={p} />
           ))}
         </div>
       )}
