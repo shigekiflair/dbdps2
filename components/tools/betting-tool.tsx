@@ -59,6 +59,7 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
     { id: newOptionId(), label: "" },
   ]);
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<Set<string>>(new Set());
+  const [characterQuery, setCharacterQuery] = useState("");
 
   const [myPick, setMyPick] = useState<string | null>(null);
   const [resolvePick, setResolvePick] = useState<string | null>(null);
@@ -339,18 +340,26 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
                 <summary className="cursor-pointer text-[11px] text-bone-muted">
                   キラー/サバイバーから選択肢を選ぶ（{selectedCharacterIds.size}件選択中）
                 </summary>
+                <input
+                  value={characterQuery}
+                  onChange={(e) => setCharacterQuery(e.target.value)}
+                  placeholder="キャラ名で検索"
+                  className="mt-2 w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-1.5 text-[11px] text-bone placeholder:text-bone-muted"
+                />
                 <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-                  {characters.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => toggleCharacter(c.id)}
-                      className={`rounded-md border px-2 py-1 text-[11px] ${
-                        selectedCharacterIds.has(c.id) ? "border-blood bg-blood-dark text-[#F5C4B3]" : "border-[#2C2C2A] text-bone-muted"
-                      }`}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
+                  {characters
+                    .filter((c) => c.name.toLowerCase().includes(characterQuery.trim().toLowerCase()))
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => toggleCharacter(c.id)}
+                        className={`rounded-md border px-2 py-1 text-[11px] ${
+                          selectedCharacterIds.has(c.id) ? "border-blood bg-blood-dark text-[#F5C4B3]" : "border-[#2C2C2A] text-bone-muted"
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
                 </div>
               </details>
             )}

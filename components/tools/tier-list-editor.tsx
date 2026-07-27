@@ -33,6 +33,7 @@ export function TierListEditor({
   const [tiers, setTiers] = useState<Tier[]>(initialTiers?.length ? initialTiers : DEFAULT_TIERS);
   const [assignments, setAssignments] = useState<Record<string, string>>(initialAssignments ?? {});
   const [selectedKiller, setSelectedKiller] = useState<string | null>(null);
+  const [killerQuery, setKillerQuery] = useState("");
   const [dragOverTier, setDragOverTier] = useState<string | null>(null);
 
   // マウント時点のデフォルト状態(S/A/B/C/D)を親に伝える。何も操作せず保存しても
@@ -240,26 +241,35 @@ export function TierListEditor({
         }`}
       >
         <p className="mb-2 text-[11px] text-bone-muted">未振り分け（ここにドロップで解除）</p>
+        <input
+          value={killerQuery}
+          onChange={(e) => setKillerQuery(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          placeholder="キャラ名で検索"
+          className="mb-2 w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-1.5 text-xs text-bone placeholder:text-bone-muted"
+        />
         <div className="flex flex-wrap gap-2">
-          {unranked.map((k) => (
-            <span
-              key={k.id}
-              draggable
-              onDragStart={(e) => {
-                e.stopPropagation();
-                handleDragStart(e, k.id);
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleChipTap(k.id);
-              }}
-              className={`cursor-grab rounded-md border px-2 py-1 text-xs active:cursor-grabbing ${
-                selectedKiller === k.id ? "border-bone text-bone" : "border-[#2C2C2A] text-bone-muted"
-              }`}
-            >
-              {k.name}
-            </span>
-          ))}
+          {unranked
+            .filter((k) => k.name.toLowerCase().includes(killerQuery.trim().toLowerCase()))
+            .map((k) => (
+              <span
+                key={k.id}
+                draggable
+                onDragStart={(e) => {
+                  e.stopPropagation();
+                  handleDragStart(e, k.id);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleChipTap(k.id);
+                }}
+                className={`cursor-grab rounded-md border px-2 py-1 text-xs active:cursor-grabbing ${
+                  selectedKiller === k.id ? "border-bone text-bone" : "border-[#2C2C2A] text-bone-muted"
+                }`}
+              >
+                {k.name}
+              </span>
+            ))}
         </div>
       </div>
     </div>
