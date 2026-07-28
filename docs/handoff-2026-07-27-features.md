@@ -198,6 +198,8 @@ E2Eではなく、この規模に見合った2種類の軽量テストを導入�
 npm run test
 ```
 
+**注意**：PowerShellはワイルドカード（`*.test.ts`）を展開してくれないため、`package.json`の`test`スクリプトはテストファイルを1つずつ明示的に列挙する形にしています。今後新しいテストファイルを追加したら、`package.json`の`test`スクリプトにもファイル名を追記してください。
+
 ## 2. デプロイ後スモークテスト
 
 `scripts/smoke-test.ts`：`/plans`・`/mypage`・`/ranking`・`/api/auth/providers`・`/api/auth/session`にアクセスして200が返るか確認するだけの軽量スクリプト。今回のAUTH_SECRET未設定事故のような「デプロイもマイグレーションも成功しているのに認証だけ全滅」というパターンを検知できます。

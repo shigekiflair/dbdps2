@@ -12,7 +12,7 @@
     "db:studio": "drizzle-kit studio --port 8043",
     "db:seed": "tsx db/seed.ts",
     "db:import-csv": "tsx scripts/import-csv.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test tests/betting-rules.test.ts tests/permissions.test.ts",
     "smoke": "tsx scripts/smoke-test.ts"
   },
   "dependencies": {
