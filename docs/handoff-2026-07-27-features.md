@@ -148,3 +148,23 @@ npm run db:migrate
 ```
 
 が必要です。
+
+---
+
+# 追記（同日）：管理者削除をソフトデリート化（優先度1対応）
+
+## 実装内容
+
+- `plans`テーブルに`deleted_at`カラムを追加。削除は物理削除ではなく、この日時を立てるだけに変更
+- `getPublishedPlans`・`getPlanBySlug`・`getUserPlans`は自動的に削除済みを除外
+- `/admin/trash`を新設：削除済み企画の一覧・復元・完全削除（こちらは取り消し不可）
+- `/admin/reports`から「ゴミ箱を見る」に遷移可能
+
+マイページからユーザー自身が削除する場合も同じ仕組み（`deleteUserPlan`）を使っているので、誤って自分の企画を消してしまった場合も管理者が`/admin/trash`から復元できます。
+
+## マイグレーション必須
+
+```bash
+npm run db:generate
+npm run db:migrate
+```

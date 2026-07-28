@@ -220,6 +220,10 @@ export const plans = pgTable("plans", {
   // createdByがnullの企画では実質未使用(常に公開扱い)。ユーザー作成企画のみこの値で制御する
   visibility: planVisibilityEnum("visibility").default("public").notNull(),
 
+  // ソフトデリート。管理者/本人が削除した企画は物理削除せずここに日時を記録し、一覧・詳細から除外する。
+  // 誤操作時に/admin/trashから復元できるようにするため
+  deletedAt: timestamp("deleted_at", { mode: "date" }),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => ({
