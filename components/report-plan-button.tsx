@@ -7,15 +7,18 @@ export function ReportPlanButton({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [done, setDone] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function submit() {
+    setErrorMessage(null);
     startTransition(async () => {
       try {
         await reportPlan(slug, reason);
         setDone(true);
       } catch (err) {
         console.error(err);
+        setErrorMessage(err instanceof Error ? err.message : "通報に失敗しました。");
       }
     });
   }
@@ -34,6 +37,7 @@ export function ReportPlanButton({ slug }: { slug: string }) {
 
   return (
     <div className="rounded-md border border-[#2C2C2A] p-2">
+      {errorMessage && <p className="mb-1.5 text-[10px] text-[#ff8080]">{errorMessage}</p>}
       <textarea
         value={reason}
         onChange={(e) => setReason(e.target.value)}
