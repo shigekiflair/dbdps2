@@ -208,9 +208,15 @@ npm run test
 npm run smoke -- https://dbdps2.vercel.app
 ```
 
-## 3. GitHub Actionsで自動化
+## 3. 自動実行について（GitHub Actionsは使わない方針に変更）
 
-- `.github/workflows/ci.yml`：`main`へのpush/PRごとに`npm run test`を自動実行
-- `.github/workflows/smoke.yml`：Vercelの本番デプロイ成功イベント(`deployment_status`)をトリガーに、自動でスモークテストを実行
+当初はGitHub Actionsで自動化する想定でしたが、リポジトリがPrivateでActions無料枠を使い切っていたため、**`.github/workflows/`は削除し、手動実行に切り替えました**。
 
-**初回は正しく発火するか確認してください。** GitHubリポジトリの「Actions」タブで、pushやデプロイ後にワークフローが実行されているか見てもらえればと思います。特に`smoke.yml`はVercelのGitHub連携（deployment_statusイベント）に依存しているので、もし発火しない場合はVercel側のGit連携設定（Settings → Git → deployment_status Events）が有効になっているか確認してください（以前のスクリーンショットでは有効になっていました）。
+**デプロイのたびに、以下の2つを手元のPowerShellで実行してください。**
+
+```bash
+npm run test    # ユニットテスト(数秒で終わります)
+npm run smoke -- https://dbdps2.vercel.app   # 本番URLへの疎通確認
+```
+
+手間は増えますが、費用も公開リスクもゼロです。もし後日Actionsを使いたくなった場合（無料枠がリセットされた後、リポジトリをPublicにした後、従量課金を有効にした後など）は、上記の`npm run test`・`npm run smoke`コマンドをそのままGitHub Actionsのワークフローに組み込むだけで自動化できます。
