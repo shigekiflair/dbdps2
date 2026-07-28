@@ -31,3 +31,12 @@ export function canViewPlan(
   if (plan.visibility === "private") return plan.createdBy === viewerId;
   return true;
 }
+
+/**
+ * 管理者権限の変更が許可されるか。自分自身の管理者権限を外す操作だけは禁止する
+ * (誤操作でロックアウトするのを防ぐため。本当に外したい場合はDBを直接操作する運用にする)。
+ */
+export function canChangeAdminStatus(targetUserId: string, nextIsAdmin: boolean, actingUserId: string): boolean {
+  if (!nextIsAdmin && targetUserId === actingUserId) return false;
+  return true;
+}

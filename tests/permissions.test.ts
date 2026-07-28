@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { canHostPlan, canViewPlan } from "../lib/permissions";
+import { canHostPlan, canViewPlan, canChangeAdminStatus } from "../lib/permissions";
 
 describe("canHostPlan", () => {
   test("未ログインは常にfalse", () => {
@@ -41,5 +41,23 @@ describe("canViewPlan", () => {
   test("unlisted/publicは誰でも閲覧可", () => {
     assert.equal(canViewPlan({ createdBy: "owner-1", visibility: "unlisted" }, null), true);
     assert.equal(canViewPlan({ createdBy: "owner-1", visibility: "public" }, "someone-else"), true);
+  });
+});
+
+describe("canChangeAdminStatus", () => {
+  test("自分自身の管理者権限を外すことはできない", () => {
+    assert.equal(canChangeAdminStatus("admin-1", false, "admin-1"), false);
+  });
+
+  test("他人の管理者権限は外せる", () => {
+    assert.equal(canChangeAdminStatus("admin-2", false, "admin-1"), true);
+  });
+
+  test("自分自身に管理者権限を付与するのは許可(既に管理者のはずだが念のため矛盾は無い)", () => {
+    assert.equal(canChangeAdminStatus("admin-1", true, "admin-1"), true);
+  });
+
+  test("他人に管理者権限を付与できる", () => {
+    assert.equal(canChangeAdminStatus("user-2", true, "admin-1"), true);
   });
 });

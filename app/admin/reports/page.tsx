@@ -16,9 +16,14 @@ export default async function AdminReportsPage() {
       </a>
       <div className="mb-1 flex items-center justify-between">
         <h1 className="text-lg font-medium text-bone">通報の確認</h1>
-        <a href="/admin/trash" className="text-[11px] text-bone-muted underline">
-          ゴミ箱を見る
-        </a>
+        <div className="flex gap-3 text-[11px] text-bone-muted">
+          <a href="/admin/trash" className="underline">
+            ゴミ箱
+          </a>
+          <a href="/admin/users" className="underline">
+            管理者の管理
+          </a>
+        </div>
       </div>
       <p className="mb-6 text-xs text-bone-muted">未対応の通報一覧です（管理者のみアクセスできます）。</p>
 
