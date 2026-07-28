@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { bettingRounds, bettingVotes, pointTransactions, users } from "@/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 export type BettingOption = { id: string; label: string };
 export type BettingMode = "win" | "exacta" | "trifecta";
@@ -70,10 +70,19 @@ export async function resolveRound(roundId: string, correctPicks: string[]) {
   const points = POINTS[mode];
   const reason = REASON[mode];
 
+  // ポイントはログインユーザー(usersテーブルに実在するuserId)にのみ付与する。
+  // 匿名Cookie IDはCookieを消せば何度でも投票し直せてしまうため、資産性のあるポイントの対象からは除外する
+  const candidateUserIds = [...new Set(votes.map((v) => v.userId))];
+  const registeredUserIds =
+    candidateUserIds.length > 0
+      ? new Set((await db.select({ id: users.id }).from(users).where(inArray(users.id, candidateUserIds))).map((u) => u.id))
+      : new Set<string>();
+
   for (const vote of votes) {
     const picks = (vote.picks as string[]) ?? [];
     const isExactMatch = picks.length === correctPicks.length && picks.every((p, i) => p === correctPicks[i]);
     if (!isExactMatch) continue;
+    if (!registeredUserIds.has(vote.userId)) continue; // 未ログイン(匿名)の的中にはポイントを付与しない
 
     await db.update(bettingVotes).set({ pointsAwarded: points }).where(eq(bettingVotes.id, vote.id));
     await db.insert(pointTransactions).values({
@@ -84,6 +93,17 @@ export async function resolveRound(roundId: string, correctPicks: string[]) {
       roundId: round.id,
     });
   }
+}
+
+/** 過去に締め切られた質問の履歴(最新のもの以外)。企画ページ内で振り返れるようにするため */
+export async function getRoundHistory(planId: string, excludeRoundId: string, limit = 10) {
+  const rows = await db
+    .select()
+    .from(bettingRounds)
+    .where(eq(bettingRounds.planId, planId))
+    .orderBy(desc(bettingRounds.createdAt))
+    .limit(limit + 1);
+  return rows.filter((r) => r.id !== excludeRoundId).slice(0, limit);
 }
 
 export async function castVote(roundId: string, userId: string, picks: string[]) {

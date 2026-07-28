@@ -262,6 +262,16 @@ export const planFavorites = pgTable("plan_favorites", {
   uniquePerUserPlan: uniqueIndex("plan_favorites_user_plan_unique").on(t.planId, t.userId),
 }));
 
+/** ユーザー作成企画の通報。公開機能(Phase2)を作る前の最低限のモデレーション手段として先に用意しておく */
+export const planReports = pgTable("plan_reports", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  planId: uuid("plan_id").notNull().references(() => plans.id, { onDelete: "cascade" }),
+  reporterId: uuid("reporter_id"), // 匿名Cookie or 実ユーザー。null許容(将来の運用都合で入れられないケースに備える)
+  reason: text("reason").notNull(),
+  resolved: boolean("resolved").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 /* =========================================================
    予想・ベッティング型（視聴者オッズ予想戦／裁判ガチャ等）
    ========================================================= */

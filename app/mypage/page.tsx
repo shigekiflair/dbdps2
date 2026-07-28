@@ -30,9 +30,18 @@ export default async function MyPage() {
       </header>
 
       <h1 className="mb-1 text-lg font-medium text-bone">マイページ</h1>
-      <p className="mb-6 text-xs text-bone-muted">
+      <p className="mb-3 text-xs text-bone-muted">
         お気に入りに登録した企画がここに並びます。ログインすると端末をまたいで引き継がれます。
       </p>
+
+      {!session?.user?.id && (
+        <div className="mb-6 rounded-lg border border-amber bg-[#2A1D08] px-4 py-3 text-xs text-amber">
+          今はログインしていません。この状態だとブラウザのCookieを消したり別の端末を使うと、お気に入り・獲得ポイントが引き継がれません。
+          <a href="/login?callbackUrl=/mypage" className="ml-2 font-medium underline">
+            ログインする
+          </a>
+        </div>
+      )}
 
       {favoritePlans.length === 0 ? (
         <div className="rounded-card border border-[#2C2C2A] bg-ash px-5 py-10 text-center text-xs text-bone-muted">

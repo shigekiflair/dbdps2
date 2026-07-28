@@ -27,7 +27,9 @@ type BettingState = {
   myVote: string[] | null;
   firstPickCounts: Record<string, number>;
   leaderboard: LeaderboardRow[];
+  history: Round[];
   isHost: boolean;
+  isLoggedIn: boolean;
   myUserId: string | null;
 };
 
@@ -190,7 +192,7 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
     return <p className="text-xs text-bone-muted">読み込み中…</p>;
   }
 
-  const { round, firstPickCounts, leaderboard, isHost, myUserId } = state;
+  const { round, firstPickCounts, leaderboard, history, isHost, isLoggedIn, myUserId } = state;
   const totalVotes = Object.values(firstPickCounts).reduce((a, b) => a + b, 0);
   const showCounts = round && round.status !== "open";
 
@@ -257,6 +259,15 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
               >
                 {state.myVote ? "投票を変更する" : "投票する"}
               </button>
+              {!isLoggedIn && (
+                <p className="text-[10px] text-bone-muted">
+                  ログインなしでも投票できますが、的中ポイントは
+                  <a href={`/login?callbackUrl=/plans/${plan.slug}`} className="mx-1 text-amber underline">
+                    ログイン
+                  </a>
+                  している人にだけ付与されます。
+                </p>
+              )}
             </div>
           )}
 
@@ -395,6 +406,25 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
               </button>
             </div>
           </div>
+        </details>
+      )}
+
+      {/* --- 過去の質問 --- */}
+      {history.length > 0 && (
+        <details className="mb-6 rounded-lg border border-[#2C2C2A] bg-ash p-4">
+          <summary className="cursor-pointer text-xs font-medium text-bone">過去の質問（{history.length}件）</summary>
+          <ul className="mt-3 space-y-2">
+            {history.map((h) => (
+              <li key={h.id} className="rounded-md border border-[#2C2C2A] px-3 py-2 text-xs">
+                <p className="text-bone">{h.question}</p>
+                <p className="mt-1 text-[10px] text-bone-muted">
+                  {h.status === "resolved" && h.correctPicks
+                    ? `正解：${h.options.find((o) => o.id === h.correctPicks![0])?.label ?? "?"}`
+                    : STATUS_LABEL[h.status]}
+                </p>
+              </li>
+            ))}
+          </ul>
         </details>
       )}
 

@@ -36,6 +36,13 @@
       "when": 1785186275058,
       "tag": "0004_perfect_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785219111027,
+      "tag": "0005_cute_madripoor",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import {
   getFirstPickCounts,
   getLeaderboard,
   getRoundPlanId,
+  getRoundHistory,
   type BettingOption,
   type BettingMode,
 } from "@/lib/betting";
@@ -83,21 +84,23 @@ export async function castBettingVote(roundId: string, picks: string[]) {
   await castVoteDb(roundId, identityId, picks);
 }
 
-/** ラウンドの現在状態・自分の投票・1着予想の人気度・ポイントランキングをまとめて取得する。ポーリングで定期的に呼び出す想定 */
+/** ラウンドの現在状態・自分の投票・1着予想の人気度・ポイントランキング・過去の質問をまとめて取得する。ポーリングで定期的に呼び出す想定 */
 export async function getBettingState(slug: string) {
   const plan = await getPlanBySlug(slug);
   if (!plan) throw new Error("plan not found");
 
-  const [round, hostOk, leaderboard] = await Promise.all([
+  const [round, session, leaderboard, hostOk] = await Promise.all([
     getLatestRound(plan.id),
-    isHostForPlan(plan.createdBy),
+    auth(),
     getLeaderboard(plan.id),
+    isHostForPlan(plan.createdBy),
   ]);
 
   const identityId = await getCurrentIdentityId();
-  const [myVote, firstPickCounts] = await Promise.all([
+  const [myVote, firstPickCounts, history] = await Promise.all([
     round && identityId ? getMyVote(round.id, identityId) : Promise.resolve(null),
     round ? getFirstPickCounts(round.id) : Promise.resolve({}),
+    round ? getRoundHistory(plan.id, round.id) : getRoundHistory(plan.id, ""),
   ]);
 
   return {
@@ -105,7 +108,9 @@ export async function getBettingState(slug: string) {
     myVote,
     firstPickCounts,
     leaderboard,
+    history,
     isHost: hostOk,
+    isLoggedIn: !!session?.user?.id,
     myUserId: identityId,
   };
 }

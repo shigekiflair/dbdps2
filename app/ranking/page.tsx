@@ -1,9 +1,14 @@
 import { getGlobalLeaderboard } from "@/lib/betting";
 import { getCurrentIdentityId } from "@/lib/identity";
+import { auth } from "@/auth";
 import { UserNav } from "@/components/user-nav";
 
 export default async function RankingPage() {
-  const [leaderboard, myUserId] = await Promise.all([getGlobalLeaderboard(50), getCurrentIdentityId()]);
+  const [leaderboard, myUserId, session] = await Promise.all([
+    getGlobalLeaderboard(50),
+    getCurrentIdentityId(),
+    auth(),
+  ]);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
@@ -19,9 +24,18 @@ export default async function RankingPage() {
       </header>
 
       <h1 className="mb-1 text-lg font-medium text-bone">ポイントランキング</h1>
-      <p className="mb-6 text-xs text-bone-muted">
+      <p className="mb-3 text-xs text-bone-muted">
         予想・ベッティング型企画で的中すると獲得できるポイントの、サイト全体での累積ランキングです。
       </p>
+
+      {!session?.user?.id && (
+        <div className="mb-6 rounded-lg border border-amber bg-[#2A1D08] px-4 py-3 text-xs text-amber">
+          ポイントはログインしている人にだけ付与されます（未ログインだと的中してもポイントが付きません）。
+          <a href="/login?callbackUrl=/ranking" className="ml-2 font-medium underline">
+            ログインする
+          </a>
+        </div>
+      )}
 
       {leaderboard.length === 0 ? (
         <div className="rounded-card border border-[#2C2C2A] bg-ash px-5 py-10 text-center text-xs text-bone-muted">

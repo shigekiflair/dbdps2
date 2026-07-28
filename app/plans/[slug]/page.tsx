@@ -18,6 +18,7 @@ import { TriggerTool } from "@/components/tools/trigger-tool";
 import { BettingTool } from "@/components/tools/betting-tool";
 import { TierListView } from "@/components/tools/tier-list-tool";
 import { SharePageButton } from "@/components/share-page-button";
+import { ReportPlanButton } from "@/components/report-plan-button";
 
 export default async function PlanDetailPage({
   params,
@@ -125,6 +126,12 @@ export default async function PlanDetailPage({
           <span className="ml-2">
             公開範囲：{plan.visibility === "private" ? "自分だけ" : plan.visibility === "unlisted" ? "リンクを知っている人だけ" : "公開"}
           </span>
+        </div>
+      )}
+
+      {plan.createdBy && plan.createdBy !== viewerId && (
+        <div className="mt-6 border-t border-[#2C2C2A] pt-4">
+          <ReportPlanButton slug={plan.slug} />
         </div>
       )}
     </main>
