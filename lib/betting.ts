@@ -1,21 +1,11 @@
 import { db } from "@/db";
 import { bettingRounds, bettingVotes, pointTransactions, users } from "@/db/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { pickCountFor, pointsFor, reasonFor, isExactMatch, type BettingMode } from "@/lib/betting-rules";
 
 export type BettingOption = { id: string; label: string };
-export type BettingMode = "win" | "exacta" | "trifecta";
-
-const PICK_COUNT: Record<BettingMode, number> = { win: 1, exacta: 2, trifecta: 3 };
-const POINTS: Record<BettingMode, number> = { win: 10, exacta: 30, trifecta: 50 };
-const REASON: Record<BettingMode, "betting_win" | "betting_exacta" | "betting_trifecta"> = {
-  win: "betting_win",
-  exacta: "betting_exacta",
-  trifecta: "betting_trifecta",
-};
-
-export function pickCountFor(mode: BettingMode) {
-  return PICK_COUNT[mode];
-}
+export type { BettingMode };
+export { pickCountFor };
 
 export async function getRoundPlanId(roundId: string): Promise<string | null> {
   const rows = await db.select({ planId: bettingRounds.planId }).from(bettingRounds).where(eq(bettingRounds.id, roundId));
@@ -67,8 +57,8 @@ export async function resolveRound(roundId: string, correctPicks: string[]) {
     .where(eq(bettingRounds.id, roundId));
 
   const votes = await db.select().from(bettingVotes).where(eq(bettingVotes.roundId, roundId));
-  const points = POINTS[mode];
-  const reason = REASON[mode];
+  const points = pointsFor(mode);
+  const reason = reasonFor(mode);
 
   // ポイントはログインユーザー(usersテーブルに実在するuserId)にのみ付与する。
   // 匿名Cookie IDはCookieを消せば何度でも投票し直せてしまうため、資産性のあるポイントの対象からは除外する
@@ -80,8 +70,7 @@ export async function resolveRound(roundId: string, correctPicks: string[]) {
 
   for (const vote of votes) {
     const picks = (vote.picks as string[]) ?? [];
-    const isExactMatch = picks.length === correctPicks.length && picks.every((p, i) => p === correctPicks[i]);
-    if (!isExactMatch) continue;
+    if (!isExactMatch(picks, correctPicks)) continue;
     if (!registeredUserIds.has(vote.userId)) continue; // 未ログイン(匿名)の的中にはポイントを付与しない
 
     await db.update(bettingVotes).set({ pointsAwarded: points }).where(eq(bettingVotes.id, vote.id));

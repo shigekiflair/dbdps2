@@ -1,0 +1,23 @@
+name: Post-deploy smoke test
+
+# VercelはGitHubのdeployment機能と連携しており、デプロイが完了すると
+# deployment_status イベント(state: success)を発行する。それを拾って本番URLを軽く叩くだけの確認。
+# environmentの表記揺れ(Production/production等)に依存しないよう、target_urlの中身で本番かどうかを判定している。
+on:
+  deployment_status:
+
+jobs:
+  smoke:
+    if: |
+      github.event.deployment_status.state == 'success' &&
+      contains(github.event.deployment_status.target_url, 'dbdps2.vercel.app')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies (tsx only, no full project install needed)
+        run: npm install --no-save tsx
+      - name: Run smoke test against deployed URL
+        run: npx tsx scripts/smoke-test.ts "${{ github.event.deployment_status.target_url }}"

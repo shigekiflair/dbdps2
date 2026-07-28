@@ -178,3 +178,39 @@ DBスキーマの変更なし（既存の`plan_reports`テーブルのタイム�
 - 同じ人が同じ企画を重複通報できないようにブロック（未対応の通報が残っている間は再通報不可）
 - 1時間あたり合計5件までの通報に制限（複数企画にまたがる連投荒らし対策）
 - 制限に引っかかった場合、通報フォームにその理由をそのまま表示するようにした
+
+---
+
+# 追記（同日）：軽量テストの導入（優先度4対応）
+
+E2Eではなく、この規模に見合った2種類の軽量テストを導入しました。DBスキーマ変更はありません。
+
+## 1. ユニットテスト（ポイント計算・権限判定）
+
+- `lib/betting-rules.ts`：的中判定(`isExactMatch`)・ポイント計算をDB非依存の純粋関数として切り出し
+- `lib/permissions.ts`：ホスト権限判定(`canHostPlan`)・閲覧権限判定(`canViewPlan`)を同様に切り出し
+- `lib/betting.ts`・`app/betting/actions.ts`・`lib/plans.ts`は、これらの純粋関数に処理を委譲する形にリファクタリング（挙動は変えていません）
+- `tests/betting-rules.test.ts`・`tests/permissions.test.ts`：Node.js標準の`node:test`を使用（Jest/Vitest等の新規依存追加なし）
+
+実行方法：
+
+```bash
+npm run test
+```
+
+## 2. デプロイ後スモークテスト
+
+`scripts/smoke-test.ts`：`/plans`・`/mypage`・`/ranking`・`/api/auth/providers`・`/api/auth/session`にアクセスして200が返るか確認するだけの軽量スクリプト。今回のAUTH_SECRET未設定事故のような「デプロイもマイグレーションも成功しているのに認証だけ全滅」というパターンを検知できます。
+
+手動実行：
+
+```bash
+npm run smoke -- https://dbdps2.vercel.app
+```
+
+## 3. GitHub Actionsで自動化
+
+- `.github/workflows/ci.yml`：`main`へのpush/PRごとに`npm run test`を自動実行
+- `.github/workflows/smoke.yml`：Vercelの本番デプロイ成功イベント(`deployment_status`)をトリガーに、自動でスモークテストを実行
+
+**初回は正しく発火するか確認してください。** GitHubリポジトリの「Actions」タブで、pushやデプロイ後にワークフローが実行されているか見てもらえればと思います。特に`smoke.yml`はVercelのGitHub連携（deployment_statusイベント）に依存しているので、もし発火しない場合はVercel側のGit連携設定（Settings → Git → deployment_status Events）が有効になっているか確認してください（以前のスクリーンショットでは有効になっていました）。

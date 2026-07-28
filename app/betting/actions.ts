@@ -18,16 +18,19 @@ import {
   type BettingOption,
   type BettingMode,
 } from "@/lib/betting";
+import { canHostPlan } from "@/lib/permissions";
 
 /**
  * 「ホスト」＝サイト全体の管理者(isAdmin)、または、その企画自体を作った本人(plan.createdBy)。
  * 運営がキュレーションした企画(createdByがnull)はisAdminのみがホスト操作できる。
+ * 実際の判定はセッション非依存の純粋関数canHostPlanに委譲している（lib/permissions.ts）。
  */
 async function isHostForPlan(createdBy: string | null): Promise<boolean> {
   const session = await auth();
-  if (!session?.user?.id) return false;
-  if (session.user.isAdmin) return true;
-  return !!createdBy && createdBy === session.user.id;
+  return canHostPlan(
+    session?.user?.id ? { userId: session.user.id, isAdmin: !!session.user.isAdmin } : null,
+    createdBy
+  );
 }
 
 async function requireHostBySlug(slug: string) {

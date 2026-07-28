@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { plans } from "@/db/schema";
 import { eq, asc, desc, and, isNull, isNotNull } from "drizzle-orm";
 import { generateUniqueSlug } from "@/lib/slug";
+import { canViewPlan } from "@/lib/permissions";
 
 export async function getPublishedPlans() {
   // 運営キュレーション企画のみ（createdByがnull）。ユーザー作成企画はここには出さず、
@@ -33,8 +34,7 @@ export async function getPlanById(planId: string) {
 export async function getViewablePlanBySlug(slug: string, viewerId: string | null) {
   const plan = await getPlanBySlug(slug);
   if (!plan) return null;
-  if (!plan.createdBy) return plan; // 運営キュレーション企画
-  if (plan.visibility === "private" && plan.createdBy !== viewerId) return null;
+  if (!canViewPlan({ createdBy: plan.createdBy, visibility: plan.visibility }, viewerId)) return null;
   return plan;
 }
 

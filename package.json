@@ -11,7 +11,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio --port 8043",
     "db:seed": "tsx db/seed.ts",
-    "db:import-csv": "tsx scripts/import-csv.ts"
+    "db:import-csv": "tsx scripts/import-csv.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "smoke": "tsx scripts/smoke-test.ts"
   },
   "dependencies": {
     "next": "^15.0.0",
