@@ -6,7 +6,7 @@ import { TierListEditor } from "@/components/tools/tier-list-editor";
 import { createTierListPlan, updateTierListPlan } from "@/app/plans/new/actions";
 
 type Tier = { id: string; label: string; color: string };
-type Killer = { id: string; name: string };
+type Killer = { id: string; name: string; iconUrl?: string | null };
 
 export function TierListPlanForm({
   killers,

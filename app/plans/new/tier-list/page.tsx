@@ -10,7 +10,7 @@ export default async function NewTierListPlanPage() {
   if (!session?.user?.id) redirect("/login?callbackUrl=/plans/new/tier-list");
 
   const killers = await db
-    .select({ id: characters.id, name: characters.name })
+    .select({ id: characters.id, name: characters.name, iconUrl: characters.iconUrl })
     .from(characters)
     .where(eq(characters.role, "killer"));
 

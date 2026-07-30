@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CharacterAvatar } from "@/components/character-avatar";
 
 type Tier = { id: string; label: string; color: string };
-type Killer = { id: string; name: string };
+type Killer = { id: string; name: string; iconUrl?: string | null };
 
 const DEFAULT_TIERS: Tier[] = [
   { id: "s", label: "S", color: "#C4342F" },
@@ -177,10 +178,11 @@ export function TierListEditor({
                         e.stopPropagation();
                         handleChipTap(killerId);
                       }}
-                      className={`cursor-grab rounded-md border px-2 py-1 text-xs text-bone active:cursor-grabbing ${
+                      className={`flex cursor-grab items-center gap-1.5 rounded-md border py-1 pl-1 pr-2 text-xs text-bone active:cursor-grabbing ${
                         selectedKiller === killerId ? "border-bone bg-ash2" : "border-[#2C2C2A] bg-ash2"
                       }`}
                     >
+                      <CharacterAvatar name={killer.name} iconUrl={killer.iconUrl} size={20} />
                       {killer.name}
                     </span>
                   );
@@ -263,10 +265,11 @@ export function TierListEditor({
                   e.stopPropagation();
                   handleChipTap(k.id);
                 }}
-                className={`cursor-grab rounded-md border px-2 py-1 text-xs active:cursor-grabbing ${
+                className={`flex cursor-grab items-center gap-1.5 rounded-md border py-1 pl-1 pr-2 text-xs active:cursor-grabbing ${
                   selectedKiller === k.id ? "border-bone text-bone" : "border-[#2C2C2A] text-bone-muted"
                 }`}
               >
+                <CharacterAvatar name={k.name} iconUrl={k.iconUrl} size={20} />
                 {k.name}
               </span>
             ))}

@@ -27,7 +27,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
   }
 
   const killers = await db
-    .select({ id: characters.id, name: characters.name })
+    .select({ id: characters.id, name: characters.name, iconUrl: characters.iconUrl })
     .from(characters)
     .where(eq(characters.role, "killer"));
 
