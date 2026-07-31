@@ -1,7 +1,13 @@
+"use client";
+
+import { useState } from "react";
+
 /**
  * キャラクターのアイコン表示。iconUrlが設定されていれば画像を表示し、
- * 無ければキャラ名から決定的に色を生成した「仮アイコン」(頭文字バッジ)を表示する。
- * 実画像(スクショ等)が用意でき次第、charactersテーブルのicon_urlを埋めるだけで自動的に画像表示に切り替わる。
+ * 無い場合・画像の読み込みに失敗した場合（ファイルがまだ用意されていない等）は、
+ * キャラ名から決定的に色を生成した「仮アイコン」(頭文字バッジ)を表示する。
+ * 実画像(スクショ等)が用意でき次第、charactersテーブルのicon_urlを実在するパスに更新すれば、
+ * 自動的に仮アイコンから本物の画像表示に切り替わる。
  */
 
 function hashToHue(name: string): number {
@@ -21,9 +27,11 @@ export function CharacterAvatar({
   iconUrl?: string | null;
   size?: number;
 }) {
-  if (iconUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
+  const [failed, setFailed] = useState(false);
+
+  if (iconUrl && !failed) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={iconUrl}
         alt={name}
@@ -31,6 +39,7 @@ export function CharacterAvatar({
         height={size}
         style={{ width: size, height: size }}
         className="shrink-0 rounded-full object-cover"
+        onError={() => setFailed(true)}
       />
     );
   }
