@@ -38,7 +38,7 @@ export function StringListPlanForm({ type }: { type: StringListType }) {
     setErrorMessage(null);
     startTransition(async () => {
       try {
-        const { slug } = await createStringListPlan({
+        const result = await createStringListPlan({
           type,
           title,
           description,
@@ -46,10 +46,14 @@ export function StringListPlanForm({ type }: { type: StringListType }) {
           items: itemsText.split("\n"),
           threshold: type === "escalation" ? threshold : undefined,
         });
-        router.push(`/plans/${slug}?created=1`);
+        if (result.error || !result.slug) {
+          setErrorMessage(result.error ?? "作成に失敗しました。");
+          return;
+        }
+        router.push(`/plans/${result.slug}?created=1`);
       } catch (err) {
         console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "作成に失敗しました。");
+        setErrorMessage("作成に失敗しました。時間をおいてもう一度お試しください。");
       }
     });
   }

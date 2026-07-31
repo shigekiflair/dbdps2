@@ -20,13 +20,12 @@ export function UserRow({
     const next = !user.isAdmin;
     if (next && !window.confirm(`「${user.name ?? user.email}」を管理者にします。よろしいですか？`)) return;
     startTransition(async () => {
-      try {
-        await toggleAdmin(user.id, next);
-        router.refresh();
-      } catch (err) {
-        console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "操作に失敗しました。");
+      const result = await toggleAdmin(user.id, next);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
       }
+      router.refresh();
     });
   }
 

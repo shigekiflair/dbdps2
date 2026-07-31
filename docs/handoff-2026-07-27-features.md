@@ -269,3 +269,40 @@ DBスキーマ変更なし（`characters.icon_url`は元々存在していたカ
 ## 今後、本物の画像を反映する方法
 
 運営元の許諾が下りて画像ファイルが用意できたら、`characters`テーブルの該当キラーの`icon_url`列に画像のURL（`public/characters/xxx.png`のような相対パス、または外部ホスティングのURL）を入れるだけで、自動的に仮アイコンから本物の画像表示に切り替わります。コード側の変更は不要です。
+
+---
+
+# 追記（同日）：サーバーアクションのエラーメッセージが本番で消えるバグを修正（重要）
+
+## 何が起きていたか
+
+Next.jsは本番ビルドで、Server Action内で`throw new Error("メッセージ")`した内容を**セキュリティ上の理由で自動的に握りつぶし**、以下のような汎用メッセージに差し替えます。
+
+```
+An error occurred in the Server Components render. The specific message is omitted in production builds...
+```
+
+これは開発環境（`npm run dev`）では発生せず、**本番(Vercel)でのみ再現する**ため、動作確認だけでは気づけませんでした。今回`/plans/new/tier-list`でタイトル未入力のまま送信した際にこの汎用エラーが表示され、発覚しました。
+
+影響範囲は「このチャットで実装した、バリデーション/権限エラーをthrowしていたServer Action全部」でした。つまり企画作成・ベッティングの投票や締切・通報・削除・管理者操作など、これまで作ってきた「〇〇してください」という赤枠メッセージの多くが、実際には本番でこの汎用メッセージに化けていた可能性があります。
+
+## 直した内容
+
+対象となる全てのServer Actionを、**`throw`ではなく戻り値`{ error?: string }`でエラーを返す**方式に統一しました。呼び出し側のクライアントコンポーネントも、`try/catch`ではなく`if (result.error)`でチェックする形に合わせて修正しています。
+
+修正したファイル：
+- `app/plans/new/actions.ts` / `components/plan-builder/string-list-form.tsx` / `tier-list-form.tsx`
+- `app/betting/actions.ts` / `components/tools/betting-tool.tsx`
+- `app/plans/[slug]/report-actions.ts` / `components/report-plan-button.tsx`
+- `app/mypage/actions.ts` / `components/my-plan-card.tsx`
+- `app/admin/reports/actions.ts` / `app/admin/reports/report-row.tsx`
+- `app/admin/trash/actions.ts` / `app/admin/trash/trash-row.tsx`
+- `app/admin/users/actions.ts` / `app/admin/users/user-row.tsx`
+
+`app/plans/actions.ts`（ランダムセレクト等の既存機能）や`app/favorites/actions.ts`は、投げているエラーが「本来起こらないはずの異常系(plan not found等)」で、かつクライアント側でもメッセージを画面表示していないため、今回は対象外としています。
+
+## 今後の注意点（新しいServer Actionを作る時のルール）
+
+**Server Actionの中でバリデーションエラーをユーザーに見せたい場合は、`throw`ではなく`return { error: "メッセージ" }`の形で返すこと。** `throw`していいのは「本当に起きてはいけない異常系」で、かつユーザーに詳細を見せる必要が無い場合だけ。
+
+マイグレーションは不要です（ロジックの修正のみ）。

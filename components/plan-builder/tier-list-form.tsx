@@ -44,10 +44,14 @@ export function TierListPlanForm({
           mode === "edit" && slug
             ? await updateTierListPlan({ slug, title, description, visibility, tiers, assignments })
             : await createTierListPlan({ title, description, visibility, tiers, assignments });
+        if (result.error || !result.slug) {
+          setErrorMessage(result.error ?? "保存に失敗しました。");
+          return;
+        }
         router.push(mode === "edit" ? `/plans/${result.slug}?updated=1` : `/plans/${result.slug}?created=1`);
       } catch (err) {
         console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "保存に失敗しました。");
+        setErrorMessage("保存に失敗しました。時間をおいてもう一度お試しください。");
       }
     });
   }

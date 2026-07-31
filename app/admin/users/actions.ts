@@ -4,18 +4,19 @@ import { auth } from "@/auth";
 import { setAdminStatus } from "@/lib/users";
 import { canChangeAdminStatus } from "@/lib/permissions";
 
-async function requireAdmin() {
+export async function toggleAdmin(targetUserId: string, nextIsAdmin: boolean): Promise<{ error?: string }> {
   const session = await auth();
-  if (!session?.user?.isAdmin) throw new Error("管理者アカウントでログインしてください");
-  return session;
-}
-
-export async function toggleAdmin(targetUserId: string, nextIsAdmin: boolean) {
-  const session = await requireAdmin();
+  if (!session?.user?.isAdmin) return { error: "管理者アカウントでログインしてください" };
 
   if (!canChangeAdminStatus(targetUserId, nextIsAdmin, session.user.id)) {
-    throw new Error("自分自身の管理者権限は、このUIからは外せません。");
+    return { error: "自分自身の管理者権限は、このUIからは外せません。" };
   }
 
-  await setAdminStatus(targetUserId, nextIsAdmin);
+  try {
+    await setAdminStatus(targetUserId, nextIsAdmin);
+    return {};
+  } catch (err) {
+    console.error(err);
+    return { error: "操作に失敗しました。" };
+  }
 }

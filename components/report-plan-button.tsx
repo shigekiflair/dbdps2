@@ -13,13 +13,12 @@ export function ReportPlanButton({ slug }: { slug: string }) {
   function submit() {
     setErrorMessage(null);
     startTransition(async () => {
-      try {
-        await reportPlan(slug, reason);
-        setDone(true);
-      } catch (err) {
-        console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "通報に失敗しました。");
+      const result = await reportPlan(slug, reason);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
       }
+      setDone(true);
     });
   }
 

@@ -116,19 +116,18 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
     const options = [...characterOptions, ...textOptions];
 
     startTransition(async () => {
-      try {
-        await openBettingRound(plan.slug, question, "win", options);
-        setQuestion("");
-        setOptionDrafts([
-          { id: newOptionId(), label: "" },
-          { id: newOptionId(), label: "" },
-        ]);
-        setSelectedCharacterIds(new Set());
-        refresh();
-      } catch (err) {
-        console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "質問の作成に失敗しました。");
+      const result = await openBettingRound(plan.slug, question, "win", options);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
       }
+      setQuestion("");
+      setOptionDrafts([
+        { id: newOptionId(), label: "" },
+        { id: newOptionId(), label: "" },
+      ]);
+      setSelectedCharacterIds(new Set());
+      refresh();
     });
   }
 
@@ -136,40 +135,37 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
     if (!state?.round || !myPick) return;
     setErrorMessage(null);
     startTransition(async () => {
-      try {
-        await castBettingVote(state.round!.id, [myPick]);
-        refresh();
-      } catch (err) {
-        console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "投票に失敗しました。");
+      const result = await castBettingVote(state.round!.id, [myPick]);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
       }
+      refresh();
     });
   }
 
   function close() {
     if (!state?.round) return;
     startTransition(async () => {
-      try {
-        await closeBettingRound(state.round!.id);
-        refresh();
-      } catch (err) {
-        console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "締切に失敗しました。");
+      const result = await closeBettingRound(state.round!.id);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
       }
+      refresh();
     });
   }
 
   function reopen() {
     if (!state?.round) return;
     startTransition(async () => {
-      try {
-        await reopenBettingRound(state.round!.id);
-        setResolvePick(null);
-        refresh();
-      } catch (err) {
-        console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "再開に失敗しました。");
+      const result = await reopenBettingRound(state.round!.id);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
       }
+      setResolvePick(null);
+      refresh();
     });
   }
 
@@ -178,13 +174,12 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
     const label = state.round.options.find((o) => o.id === resolvePick)?.label;
     if (!window.confirm(`「${label}」を正解として確定します。的中した視聴者に${POINTS_PER_CORRECT}pt付与されます。よろしいですか？`)) return;
     startTransition(async () => {
-      try {
-        await resolveBettingRound(state.round!.id, [resolvePick]);
-        refresh();
-      } catch (err) {
-        console.error(err);
-        setErrorMessage(err instanceof Error ? err.message : "結果発表に失敗しました。");
+      const result = await resolveBettingRound(state.round!.id, [resolvePick]);
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
       }
+      refresh();
     });
   }
 

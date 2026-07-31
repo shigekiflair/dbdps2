@@ -20,19 +20,22 @@ export function MyPlanCard({
   const badge = planTypeBadge(plan.type);
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function handleDelete() {
     if (!confirming) {
       setConfirming(true);
       return;
     }
+    setErrorMessage(null);
     startTransition(async () => {
-      try {
-        await deleteMyPlan(plan.id);
-        router.refresh();
-      } catch (err) {
-        console.error(err);
+      const result = await deleteMyPlan(plan.id);
+      if (result.error) {
+        setErrorMessage(result.error);
+        setConfirming(false);
+        return;
       }
+      router.refresh();
     });
   }
 
@@ -43,6 +46,7 @@ export function MyPlanCard({
         <span className="text-[10px] text-bone-muted">{VISIBILITY_LABEL[plan.visibility] ?? plan.visibility}</span>
       </div>
       <p className="mb-3 text-sm font-medium text-bone">{plan.title}</p>
+      {errorMessage && <p className="mb-2 text-[10px] text-[#ff8080]">{errorMessage}</p>}
       <div className="flex gap-2 text-xs">
         <a
           href={`/plans/${plan.slug}`}
