@@ -1,17 +1,20 @@
 import { getFavoritePlans } from "@/lib/favorites";
 import { getUserPlans } from "@/lib/plans";
 import { getCurrentIdentityId } from "@/lib/identity";
+import { getOpenReports } from "@/lib/reports";
 import { auth } from "@/auth";
 import { PlanCard } from "@/components/plan-card";
 import { MyPlanCard } from "@/components/my-plan-card";
 import { UserNav } from "@/components/user-nav";
+import { AdminMenu } from "@/components/admin-menu";
 
 export default async function MyPage() {
   const identityId = await getCurrentIdentityId();
   const session = await auth();
-  const [favoritePlans, myPlans] = await Promise.all([
+  const [favoritePlans, myPlans, openReports] = await Promise.all([
     identityId ? getFavoritePlans(identityId) : Promise.resolve([]),
     session?.user?.id ? getUserPlans(session.user.id) : Promise.resolve([]),
+    session?.user?.isAdmin ? getOpenReports() : Promise.resolve([]),
   ]);
 
   return (
@@ -25,6 +28,11 @@ export default async function MyPage() {
           <a href="/ranking">ランキング</a>
           <span className="rounded-full border border-amber px-3 py-1 font-medium text-amber">マイページ</span>
           <a href="/tools">ツール</a>
+          <AdminMenu
+            isAdmin={!!session?.user?.isAdmin}
+            isCollaborator={!!session?.user?.isCollaborator}
+            openReportsCount={openReports.length}
+          />
           <UserNav />
         </nav>
       </header>
