@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createMapAction, updateMapAction } from "../actions";
+import { Field } from "@/components/game-data/field";
 
 type MapItem = { id: string; slug: string; name: string; realm: string | null; iconUrl: string | null };
 
@@ -12,30 +13,38 @@ type Draft = ReturnType<typeof emptyDraft>;
 function MapFormFields({ draft, setDraft }: { draft: Draft; setDraft: (d: Draft) => void }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <input
-        value={draft.slug}
-        onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
-        placeholder="slug（半角英数-のみ）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.name}
-        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        placeholder="マップ名"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.realm}
-        onChange={(e) => setDraft({ ...draft, realm: e.target.value })}
-        placeholder="リルム名（任意）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.iconUrl}
-        onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
-        placeholder="アイコンURL（任意）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
+      <Field label="slug（URLに使う識別子。半角英数とハイフンのみ）">
+        <input
+          value={draft.slug}
+          onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+          placeholder="the-game"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="マップ名">
+        <input
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          placeholder="ザ・ゲーム"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="リルム（マップの系統。任意）">
+        <input
+          value={draft.realm}
+          onChange={(e) => setDraft({ ...draft, realm: e.target.value })}
+          placeholder="製材所"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="アイコン画像のURL（任意）">
+        <input
+          value={draft.iconUrl}
+          onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
+          placeholder="/maps/the-game.png"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
     </div>
   );
 }

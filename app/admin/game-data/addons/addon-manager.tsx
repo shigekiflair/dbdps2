@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createAddonAction, updateAddonAction } from "../actions";
+import { Field } from "@/components/game-data/field";
 
 type Rarity = "common" | "uncommon" | "rare" | "very_rare" | "ultra_rare" | "event";
 type Addon = {
@@ -51,67 +52,85 @@ function AddonFormFields({
 }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <input
-        value={draft.slug}
-        onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
-        placeholder="slug（半角英数-のみ）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.name}
-        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        placeholder="名前"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <select
-        value={draft.rarity}
-        onChange={(e) => setDraft({ ...draft, rarity: e.target.value as Rarity })}
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
-      >
-        {Object.entries(RARITY_LABEL).map(([v, label]) => (
-          <option key={v} value={v}>
-            {label}
-          </option>
-        ))}
-      </select>
+      <Field label="slug（URLに使う識別子。半角英数とハイフンのみ）">
+        <input
+          value={draft.slug}
+          onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+          placeholder="wooden-stake"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="名前">
+        <input
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          placeholder="木の杭"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="レアリティ">
+        <select
+          value={draft.rarity}
+          onChange={(e) => setDraft({ ...draft, rarity: e.target.value as Rarity })}
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
+        >
+          {Object.entries(RARITY_LABEL).map(([v, label]) => (
+            <option key={v} value={v}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </Field>
       <div />
-      <select
-        value={draft.killerId}
-        onChange={(e) => setDraft({ ...draft, killerId: e.target.value, itemId: e.target.value ? "" : draft.itemId })}
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
-      >
-        <option value="">（キラー用ではない）</option>
-        {killers.map((k) => (
-          <option key={k.id} value={k.id}>
-            {k.name}用
-          </option>
-        ))}
-      </select>
-      <select
-        value={draft.itemId}
-        onChange={(e) => setDraft({ ...draft, itemId: e.target.value, killerId: e.target.value ? "" : draft.killerId })}
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
-      >
-        <option value="">（アイテム用ではない）</option>
-        {items.map((i) => (
-          <option key={i.id} value={i.id}>
-            {i.name}用
-          </option>
-        ))}
-      </select>
-      <textarea
-        value={draft.description}
-        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-        placeholder="効果の説明（任意）"
-        rows={2}
-        className="sm:col-span-2 rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.iconUrl}
-        onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
-        placeholder="アイコンURL（任意）"
-        className="sm:col-span-2 rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
+      <Field label="対象キラー（キラー固有アドオンの場合のみ選択）">
+        <select
+          value={draft.killerId}
+          onChange={(e) => setDraft({ ...draft, killerId: e.target.value, itemId: e.target.value ? "" : draft.itemId })}
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
+        >
+          <option value="">（キラー用ではない）</option>
+          {killers.map((k) => (
+            <option key={k.id} value={k.id}>
+              {k.name}用
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="対象アイテム（アイテム用アドオンの場合のみ選択）">
+        <select
+          value={draft.itemId}
+          onChange={(e) => setDraft({ ...draft, itemId: e.target.value, killerId: e.target.value ? "" : draft.killerId })}
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
+        >
+          <option value="">（アイテム用ではない）</option>
+          {items.map((i) => (
+            <option key={i.id} value={i.id}>
+              {i.name}用
+            </option>
+          ))}
+        </select>
+      </Field>
+      <div className="sm:col-span-2">
+        <Field label="効果の説明（任意）">
+          <textarea
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            placeholder="効果の説明（任意）"
+            rows={2}
+            className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+          />
+        </Field>
+      </div>
+      <div className="sm:col-span-2">
+        <Field label="アイコン画像のURL（任意）">
+          <input
+            value={draft.iconUrl}
+            onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
+            placeholder="/addons/wooden-stake.png"
+            className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+          />
+        </Field>
+      </div>
     </div>
   );
 }

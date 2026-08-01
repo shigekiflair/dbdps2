@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPerkAction, updatePerkAction } from "../actions";
+import { Field } from "@/components/game-data/field";
 
 type Perk = {
   id: string;
@@ -39,51 +40,67 @@ function PerkFormFields({
   const candidateCharacters = characters.filter((c) => c.role === draft.role);
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <input
-        value={draft.slug}
-        onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
-        placeholder="slug（半角英数-のみ）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.name}
-        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        placeholder="名前（例: 血の絆）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <select
-        value={draft.role}
-        onChange={(e) => setDraft({ ...draft, role: e.target.value as "killer" | "survivor", originCharacterId: "" })}
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
-      >
-        <option value="killer">キラー用</option>
-        <option value="survivor">サバイバー用</option>
-      </select>
-      <select
-        value={draft.originCharacterId}
-        onChange={(e) => setDraft({ ...draft, originCharacterId: e.target.value })}
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
-      >
-        <option value="">共通パーク（固有キャラなし）</option>
-        {candidateCharacters.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}の固有パーク
-          </option>
-        ))}
-      </select>
-      <textarea
-        value={draft.description}
-        onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-        placeholder="効果の説明（任意）"
-        rows={2}
-        className="sm:col-span-2 rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.iconUrl}
-        onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
-        placeholder="アイコンURL（任意）"
-        className="sm:col-span-2 rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
+      <Field label="slug（URLに使う識別子。半角英数とハイフンのみ）">
+        <input
+          value={draft.slug}
+          onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+          placeholder="blood-pact"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="名前">
+        <input
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          placeholder="血の絆"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="キラー用・サバイバー用のどちらか">
+        <select
+          value={draft.role}
+          onChange={(e) => setDraft({ ...draft, role: e.target.value as "killer" | "survivor", originCharacterId: "" })}
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
+        >
+          <option value="killer">キラー用</option>
+          <option value="survivor">サバイバー用</option>
+        </select>
+      </Field>
+      <Field label="固有キャラ（コラボ終了時はここを「共通パーク」に変更）">
+        <select
+          value={draft.originCharacterId}
+          onChange={(e) => setDraft({ ...draft, originCharacterId: e.target.value })}
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
+        >
+          <option value="">共通パーク（固有キャラなし）</option>
+          {candidateCharacters.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}の固有パーク
+            </option>
+          ))}
+        </select>
+      </Field>
+      <div className="sm:col-span-2">
+        <Field label="効果の説明（任意）">
+          <textarea
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            placeholder="効果の内容を入力"
+            rows={2}
+            className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+          />
+        </Field>
+      </div>
+      <div className="sm:col-span-2">
+        <Field label="アイコン画像のURL（任意）">
+          <input
+            value={draft.iconUrl}
+            onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
+            placeholder="/perks/blood-pact.png"
+            className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+          />
+        </Field>
+      </div>
       <label className="flex items-center gap-2 text-[11px] text-bone-muted">
         <input type="checkbox" checked={draft.isActive} onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })} />
         現行バージョンで使用可能（廃止された場合はオフ）

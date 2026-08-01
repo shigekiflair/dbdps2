@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createCharacterAction, updateCharacterAction } from "../actions";
+import { Field } from "@/components/game-data/field";
 
 type Character = {
   id: string;
@@ -24,38 +25,51 @@ function CharacterFormFields({
 }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <input
-        value={draft.slug}
-        onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
-        placeholder="slug（半角英数-のみ、例: the-houndmaster）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.name}
-        onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-        placeholder="名前（例: ハウンドマスター）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <select
-        value={draft.role}
-        onChange={(e) => setDraft({ ...draft, role: e.target.value as "killer" | "survivor" })}
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
-      >
-        <option value="killer">キラー</option>
-        <option value="survivor">サバイバー</option>
-      </select>
-      <input
-        value={draft.chapter}
-        onChange={(e) => setDraft({ ...draft, chapter: e.target.value })}
-        placeholder="チャプター/DLC名（任意）"
-        className="rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
-      <input
-        value={draft.iconUrl}
-        onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
-        placeholder="アイコンURL（任意、未設定なら仮アイコン表示）"
-        className="sm:col-span-2 rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
-      />
+      <Field label="slug（URLに使う識別子。半角英数とハイフンのみ。例: the-houndmaster）">
+        <input
+          value={draft.slug}
+          onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
+          placeholder="the-houndmaster"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="名前（画面に表示される日本語名）">
+        <input
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          placeholder="ハウンドマスター"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <Field label="役割">
+        <select
+          value={draft.role}
+          onChange={(e) => setDraft({ ...draft, role: e.target.value as "killer" | "survivor" })}
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone"
+        >
+          <option value="killer">キラー</option>
+          <option value="survivor">サバイバー</option>
+        </select>
+      </Field>
+
+      <Field label="チャプター/DLC名（任意）">
+        <input
+          value={draft.chapter}
+          onChange={(e) => setDraft({ ...draft, chapter: e.target.value })}
+          placeholder="例: ハウンドマスター・チャプター"
+          className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+        />
+      </Field>
+      <div className="sm:col-span-2">
+        <Field label="アイコン画像のURL（任意。未設定なら名前から自動生成した仮アイコンが表示されます）">
+          <input
+            value={draft.iconUrl}
+            onChange={(e) => setDraft({ ...draft, iconUrl: e.target.value })}
+            placeholder="/characters/the-houndmaster.png"
+            className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-xs text-bone placeholder:text-bone-muted"
+          />
+        </Field>
+      </div>
     </div>
   );
 }
