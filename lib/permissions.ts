@@ -4,7 +4,7 @@
  * （tests/permissions.test.ts）。
  */
 
-export type MinimalSession = { userId: string | null; isAdmin: boolean } | null;
+export type MinimalSession = { userId: string | null; isAdmin: boolean; isCollaborator?: boolean } | null;
 
 /**
  * ある企画に対して「ホスト操作(お題を出す・締切る・正解を確定する等)」ができるかどうか。
@@ -39,4 +39,14 @@ export function canViewPlan(
 export function canChangeAdminStatus(targetUserId: string, nextIsAdmin: boolean, actingUserId: string): boolean {
   if (!nextIsAdmin && targetUserId === actingUserId) return false;
   return true;
+}
+
+/**
+ * ゲームデータ(キラー/サバイバー・パーク・アドオン・マップ等)の追加編集ができるか。
+ * サイト管理者、またはコラボレーター権限を付与されたユーザーのみ。
+ * 荒らし・誤情報混入対策のため一般ユーザーには開放しない。
+ */
+export function canManageGameData(session: MinimalSession): boolean {
+  if (!session?.userId) return false;
+  return session.isAdmin || !!session.isCollaborator;
 }

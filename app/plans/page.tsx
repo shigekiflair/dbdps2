@@ -22,6 +22,11 @@ export default async function PlansPage() {
         <nav className="flex items-center gap-4 text-xs text-bone-muted">
           <a href="/plans/new">企画を作る</a>
           <a href="/ranking">ランキング</a>
+          {(session?.user?.isAdmin || session?.user?.isCollaborator) && (
+            <a href="/admin/game-data" className="text-[#D9C2F0]">
+              ゲームデータ管理
+            </a>
+          )}
           {session?.user?.isAdmin && (
             <a href="/admin/reports" className="text-[#ff8080]">
               通報{openReports.length > 0 ? `（${openReports.length}）` : ""}

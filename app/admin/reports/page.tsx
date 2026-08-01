@@ -23,6 +23,9 @@ export default async function AdminReportsPage() {
           <a href="/admin/users" className="underline">
             管理者の管理
           </a>
+          <a href="/admin/game-data" className="underline">
+            ゲームデータ管理
+          </a>
         </div>
       </div>
       <p className="mb-6 text-xs text-bone-muted">未対応の通報一覧です（管理者のみアクセスできます）。</p>

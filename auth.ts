@@ -28,6 +28,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         (session.user as { id: string }).id = user.id;
         (session.user as { isAdmin: boolean }).isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+        (session.user as { isCollaborator: boolean }).isCollaborator =
+          (user as { isCollaborator?: boolean }).isCollaborator ?? false;
       }
       return session;
     },

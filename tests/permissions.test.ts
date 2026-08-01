@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { canHostPlan, canViewPlan, canChangeAdminStatus } from "../lib/permissions";
+import { canHostPlan, canViewPlan, canChangeAdminStatus, canManageGameData } from "../lib/permissions";
 
 describe("canHostPlan", () => {
   test("未ログインは常にfalse", () => {
@@ -59,5 +59,23 @@ describe("canChangeAdminStatus", () => {
 
   test("他人に管理者権限を付与できる", () => {
     assert.equal(canChangeAdminStatus("user-2", true, "admin-1"), true);
+  });
+});
+
+describe("canManageGameData", () => {
+  test("未ログインはfalse", () => {
+    assert.equal(canManageGameData(null), false);
+  });
+
+  test("管理者はtrue", () => {
+    assert.equal(canManageGameData({ userId: "u1", isAdmin: true, isCollaborator: false }), true);
+  });
+
+  test("コラボレーターはtrue", () => {
+    assert.equal(canManageGameData({ userId: "u1", isAdmin: false, isCollaborator: true }), true);
+  });
+
+  test("どちらでもない一般ユーザーはfalse", () => {
+    assert.equal(canManageGameData({ userId: "u1", isAdmin: false, isCollaborator: false }), false);
   });
 });

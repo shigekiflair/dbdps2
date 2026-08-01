@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "isCollaborator" boolean DEFAULT false NOT NULL;

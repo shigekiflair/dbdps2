@@ -336,6 +336,9 @@ export const users = pgTable("user", {
   // 配信者本人(サイトオーナー)かどうか。予想・ベッティング型のラウンド作成/正解確定など
   // 「配信者だけができる操作」を区別するために使う。初回ログイン後、DB側で手動でtrueに切り替える運用
   isAdmin: boolean("isAdmin").default(false).notNull(),
+  // ゲームデータ(キラー/サバイバー・パーク・アドオン・マップ等)の追加編集ができる「コラボレーター」権限。
+  // isAdminとは独立。荒らし対策のため一般ユーザーには開放せず、信頼できる人にだけ/admin/usersから付与する運用
+  isCollaborator: boolean("isCollaborator").default(false).notNull(),
 });
 
 export const accounts = pgTable(

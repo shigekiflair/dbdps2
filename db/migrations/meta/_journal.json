@@ -50,6 +50,13 @@
       "when": 1785228853154,
       "tag": "0006_elite_northstar",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785564595455,
+      "tag": "0007_futuristic_masque",
+      "breakpoints": true
     }
   ]
 }
