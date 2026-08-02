@@ -40,10 +40,10 @@ export default async function PlansPage() {
       <p className="mb-5 text-[11px] text-bone-muted">Dead by Daylight 配信企画ポータル</p>
 
       <div className="mb-5 rounded-card border border-[#2C2C2A] bg-ash px-5 py-4 text-xs leading-relaxed text-bone-muted">
-        配信者が作った投票・ティア表・チャレンジなどの企画で遊べる場所です。下の一覧から気になる企画を選ぶだけで、
+        投票・ティア表・チャレンジなどの企画で遊べる場所です。下の一覧から気になる企画を選ぶだけで、
         <span className="text-bone">ログイン不要ですぐに参加</span>できます。ログインすると、投票の記録やポイントが端末をまたいで残るほか、
         <a href="/plans/new" className="text-amber underline">
-          自分で企画を作る
+          誰でも自分の企画を作る
         </a>
         こともできます。
       </div>
