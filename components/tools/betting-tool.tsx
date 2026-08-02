@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useConfirm } from "@/components/confirm-dialog";
 import {
   openBettingRound,
   closeBettingRound,
@@ -51,6 +52,7 @@ function newOptionId() {
  *  → 正解を選んでいた視聴者にポイントが付く」という一直線の流れだけを扱う。
  */
 export function BettingTool({ plan, characters = [] }: { plan: { slug: string }; characters?: CharacterOption[] }) {
+  const confirm = useConfirm();
   const [state, setState] = useState<BettingState | null>(null);
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -169,10 +171,14 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
     });
   }
 
-  function resolve() {
+  async function resolve() {
     if (!state?.round || !resolvePick) return;
     const label = state.round.options.find((o) => o.id === resolvePick)?.label;
-    if (!window.confirm(`「${label}」を正解として確定します。的中した視聴者に${POINTS_PER_CORRECT}pt付与されます。よろしいですか？`)) return;
+    const ok = await confirm({
+      message: `「${label}」を正解として確定します。的中した視聴者に${POINTS_PER_CORRECT}pt付与されます。よろしいですか？`,
+      confirmLabel: "確定する",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const result = await resolveBettingRound(state.round!.id, [resolvePick]);
       if (result.error) {

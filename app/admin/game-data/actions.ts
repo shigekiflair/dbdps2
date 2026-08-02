@@ -25,15 +25,15 @@ async function requireCollaborator(): Promise<{ error: string } | { ok: true }> 
       ? { userId: session.user.id, isAdmin: !!session.user.isAdmin, isCollaborator: !!session.user.isCollaborator }
       : null
   );
-  if (!allowed) return { error: "この操作にはコラボレーター権限が必要です" };
+  if (!allowed) return { error: "この操作を行うには、コラボレーターとして登録されている必要があります。管理者に相談してください" };
   return { ok: true };
 }
 
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 
 function validateSlug(slug: string): string | null {
-  if (!slug.trim()) return "slugを入力してください";
-  if (!SLUG_PATTERN.test(slug)) return "slugは半角英小文字・数字・ハイフンのみ使用できます";
+  if (!slug.trim()) return "管理用の名前を入力してください";
+  if (!SLUG_PATTERN.test(slug)) return "管理用の名前は半角の英小文字・数字・ハイフンだけが使えます";
   return null;
 }
 
@@ -52,7 +52,7 @@ export async function createCharacterAction(input: {
   const slugError = validateSlug(input.slug);
   if (slugError) return { error: slugError };
   if (!input.name.trim()) return { error: "名前を入力してください" };
-  if (await isCharacterSlugTaken(input.slug)) return { error: "このslugは既に使われています" };
+  if (await isCharacterSlugTaken(input.slug)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await createCharacter({
@@ -79,7 +79,7 @@ export async function updateCharacterAction(
   const slugError = validateSlug(input.slug);
   if (slugError) return { error: slugError };
   if (!input.name.trim()) return { error: "名前を入力してください" };
-  if (await isCharacterSlugTaken(input.slug, id)) return { error: "このslugは既に使われています" };
+  if (await isCharacterSlugTaken(input.slug, id)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await updateCharacter(id, {
@@ -112,7 +112,7 @@ export async function createPerkAction(input: {
   const slugError = validateSlug(input.slug);
   if (slugError) return { error: slugError };
   if (!input.name.trim()) return { error: "名前を入力してください" };
-  if (await isPerkSlugTaken(input.slug)) return { error: "このslugは既に使われています" };
+  if (await isPerkSlugTaken(input.slug)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await createPerk({
@@ -148,7 +148,7 @@ export async function updatePerkAction(
   const slugError = validateSlug(input.slug);
   if (slugError) return { error: slugError };
   if (!input.name.trim()) return { error: "名前を入力してください" };
-  if (await isPerkSlugTaken(input.slug, id)) return { error: "このslugは既に使われています" };
+  if (await isPerkSlugTaken(input.slug, id)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await updatePerk(id, {
@@ -188,7 +188,7 @@ export async function createAddonAction(input: {
   if (!input.name.trim()) return { error: "名前を入力してください" };
   if (input.killerId && input.itemId) return { error: "キラー用・アイテム用のどちらか一方だけ選んでください" };
   if (!input.killerId && !input.itemId) return { error: "対象のキラーかアイテムを選んでください" };
-  if (await isAddonSlugTaken(input.slug)) return { error: "このslugは既に使われています" };
+  if (await isAddonSlugTaken(input.slug)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await createAddon({
@@ -219,7 +219,7 @@ export async function updateAddonAction(
   if (!input.name.trim()) return { error: "名前を入力してください" };
   if (input.killerId && input.itemId) return { error: "キラー用・アイテム用のどちらか一方だけ選んでください" };
   if (!input.killerId && !input.itemId) return { error: "対象のキラーかアイテムを選んでください" };
-  if (await isAddonSlugTaken(input.slug, id)) return { error: "このslugは既に使われています" };
+  if (await isAddonSlugTaken(input.slug, id)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await updateAddon(id, {
@@ -252,7 +252,7 @@ export async function createMapAction(input: {
   const slugError = validateSlug(input.slug);
   if (slugError) return { error: slugError };
   if (!input.name.trim()) return { error: "名前を入力してください" };
-  if (await isMapSlugTaken(input.slug)) return { error: "このslugは既に使われています" };
+  if (await isMapSlugTaken(input.slug)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await createMap({
@@ -278,7 +278,7 @@ export async function updateMapAction(
   const slugError = validateSlug(input.slug);
   if (slugError) return { error: slugError };
   if (!input.name.trim()) return { error: "名前を入力してください" };
-  if (await isMapSlugTaken(input.slug, id)) return { error: "このslugは既に使われています" };
+  if (await isMapSlugTaken(input.slug, id)) return { error: "その管理用の名前は既に使われています。別の名前にしてください" };
 
   try {
     await updateMap(id, {

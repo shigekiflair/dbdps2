@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition, type CSSProperties } from "react";
+import { useConfirm } from "@/components/confirm-dialog";
 import {
   drawBuildSlot,
   getKillerAddons,
@@ -138,6 +139,7 @@ export function RandomSelectTool({
   /** 全パーク制覇チャレンジ用: 指定すると役割固定＋抽選したパークを自動で「使用済み」に登録する */
   conquest?: { slug: string; role: "killer" | "survivor"; initialUsedIds: string[] };
 }) {
+  const confirm = useConfirm();
   const [role, setRole] = useState<"survivor" | "killer">(conquest?.role ?? "survivor");
   const [count, setCount] = useState(1);
   const [rows, setRows] = useState<Row[]>([emptyRow()]);
@@ -913,9 +915,10 @@ export function RandomSelectTool({
               <span className="text-[11px] text-bone-muted">{conquestPanelOpen ? "閉じる ▲" : "開く ▼"}</span>
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (conquestUsed.size === 0) return;
-                if (!window.confirm("使用済みパークの記録をすべてリセットします。よろしいですか？")) return;
+                const ok = await confirm({ message: "使用済みパークの記録をすべてリセットします。よろしいですか？", confirmLabel: "リセットする", danger: true });
+                if (!ok) return;
                 setConquestUsed(new Set());
                 startTransition(() => savePlanProgressPayload(conquest.slug, { usedIds: [] }));
               }}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { savePlanProgress } from "@/app/plans/actions";
+import { useConfirm } from "@/components/confirm-dialog";
 
 type Item = { id: string; name: string };
 
@@ -14,6 +15,7 @@ export function TrackingTool({
   items: Item[];
   initialChecked: string[];
 }) {
+  const confirm = useConfirm();
   const [checked, setChecked] = useState<Set<string>>(new Set(initialChecked));
   const [isSaving, startSaving] = useTransition();
 
@@ -26,9 +28,14 @@ export function TrackingTool({
     startSaving(() => savePlanProgress(plan.slug, Array.from(next)));
   }
 
-  function reset() {
+  async function reset() {
     if (checked.size === 0) return;
-    if (!window.confirm(`達成状況をリセットします（${checked.size}件のチェックが消えます）。よろしいですか？`)) return;
+    const ok = await confirm({
+      message: `達成状況をリセットします（${checked.size}件のチェックが消えます）。よろしいですか？`,
+      confirmLabel: "リセットする",
+      danger: true,
+    });
+    if (!ok) return;
     setChecked(new Set());
     startSaving(() => savePlanProgress(plan.slug, []));
   }

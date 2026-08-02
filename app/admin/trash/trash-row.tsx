@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-dialog";
 import { restoreDeletedPlan, permanentlyDeletePlanAction } from "./actions";
 
 export function TrashRow({ plan }: { plan: { id: string; slug: string; title: string; type: string; deletedAt: string | Date | null } }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -21,8 +23,13 @@ export function TrashRow({ plan }: { plan: { id: string; slug: string; title: st
     });
   }
 
-  function purge() {
-    if (!window.confirm(`「${plan.title}」を完全に削除します。これは取り消せません。よろしいですか？`)) return;
+  async function purge() {
+    const ok = await confirm({
+      message: `「${plan.title}」を完全に削除します。これは取り消せません。よろしいですか？`,
+      confirmLabel: "完全に削除する",
+      danger: true,
+    });
+    if (!ok) return;
     setErrorMessage(null);
     startTransition(async () => {
       const result = await permanentlyDeletePlanAction(plan.id);

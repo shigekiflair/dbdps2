@@ -83,7 +83,7 @@ export async function updateUserPlan(
   const rows = await db.select().from(plans).where(eq(plans.id, planId));
   const existing = rows[0];
   if (!existing || existing.createdBy !== userId) {
-    throw new Error("この企画を編集する権限がありません");
+    throw new Error("この企画を編集できるのは、作成した本人だけです");
   }
   await db
     .update(plans)
@@ -105,7 +105,7 @@ export async function deleteUserPlan(planId: string, userId: string) {
   const rows = await db.select().from(plans).where(eq(plans.id, planId));
   const existing = rows[0];
   if (!existing || existing.createdBy !== userId) {
-    throw new Error("この企画を削除する権限がありません");
+    throw new Error("この企画を削除できるのは、作成した本人だけです");
   }
   await db.update(plans).set({ deletedAt: new Date() }).where(eq(plans.id, planId));
 }

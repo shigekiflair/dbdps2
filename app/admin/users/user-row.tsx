@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-dialog";
 import { toggleAdmin, toggleCollaborator } from "./actions";
 
 export function UserRow({
@@ -12,13 +13,20 @@ export function UserRow({
   isSelf: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  function toggleAdminRole() {
+  async function toggleAdminRole() {
     setErrorMessage(null);
     const next = !user.isAdmin;
-    if (next && !window.confirm(`「${user.name ?? user.email}」を管理者にします。よろしいですか？`)) return;
+    if (next) {
+      const ok = await confirm({
+        message: `「${user.name ?? user.email}」を管理者にします。よろしいですか？`,
+        confirmLabel: "管理者にする",
+      });
+      if (!ok) return;
+    }
     startTransition(async () => {
       const result = await toggleAdmin(user.id, next);
       if (result.error) {
@@ -29,10 +37,16 @@ export function UserRow({
     });
   }
 
-  function toggleCollaboratorRole() {
+  async function toggleCollaboratorRole() {
     setErrorMessage(null);
     const next = !user.isCollaborator;
-    if (next && !window.confirm(`「${user.name ?? user.email}」をコラボレーター（ゲームデータ編集可）にします。よろしいですか？`)) return;
+    if (next) {
+      const ok = await confirm({
+        message: `「${user.name ?? user.email}」をコラボレーター（ゲームデータ編集可）にします。よろしいですか？`,
+        confirmLabel: "コラボレーターにする",
+      });
+      if (!ok) return;
+    }
     startTransition(async () => {
       const result = await toggleCollaborator(user.id, next);
       if (result.error) {

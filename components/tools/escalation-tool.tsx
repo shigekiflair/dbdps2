@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { savePlanProgressPayload } from "@/app/plans/actions";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export function EscalationTool({
   plan,
@@ -16,6 +17,7 @@ export function EscalationTool({
   initialPoints: number;
   initialTriggeredIndices: number[];
 }) {
+  const confirm = useConfirm();
   const [points, setPoints] = useState(initialPoints);
   const [triggered, setTriggered] = useState<number[]>(initialTriggeredIndices);
   const [rolling, setRolling] = useState(false);
@@ -61,9 +63,10 @@ export function EscalationTool({
     }
   }
 
-  function reset() {
+  async function reset() {
     if (points === 0 && triggered.length === 0) return;
-    if (!window.confirm("献身ポイントと発動済みルールをすべてリセットします。よろしいですか？")) return;
+    const ok = await confirm({ message: "献身ポイントと発動済みルールをすべてリセットします。よろしいですか？", confirmLabel: "リセットする", danger: true });
+    if (!ok) return;
     setPoints(0);
     setTriggered([]);
     save(0, []);

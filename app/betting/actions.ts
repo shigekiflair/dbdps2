@@ -39,7 +39,7 @@ async function isHostForPlan(createdBy: string | null): Promise<boolean> {
   );
 }
 
-const NOT_HOST_ERROR = "この操作は企画の作成者または配信者アカウントでのみ行えます";
+const NOT_HOST_ERROR = "この操作は、この企画を作った本人か配信者本人だけが行えます";
 
 async function checkHostBySlug(slug: string): Promise<{ error: string } | { planId: string }> {
   const plan = await getPlanBySlug(slug);

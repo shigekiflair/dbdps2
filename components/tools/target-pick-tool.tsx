@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { drawPlanResult, sharePlanResult } from "@/app/plans/actions";
+import { useConfirm } from "@/components/confirm-dialog";
 
 export function TargetPickTool({ plan }: { plan: { slug: string } }) {
+  const confirm = useConfirm();
   const [target, setTarget] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [shareCode, setShareCode] = useState<string | null>(null);
@@ -41,8 +43,14 @@ export function TargetPickTool({ plan }: { plan: { slug: string } }) {
     });
   }
 
-  function redo() {
-    if (locked && !window.confirm("指名をやり直します。共有中のリンクは新しいものに切り替わります。よろしいですか？")) return;
+  async function redo() {
+    if (locked) {
+      const ok = await confirm({
+        message: "指名をやり直します。共有中のリンクは新しいものに切り替わります。よろしいですか？",
+        confirmLabel: "やり直す",
+      });
+      if (!ok) return;
+    }
     setTarget(null);
     setLocked(false);
     setShareCode(null);

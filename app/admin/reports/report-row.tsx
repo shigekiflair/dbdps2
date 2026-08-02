@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/confirm-dialog";
 import { dismissReport, deleteReportedPlan } from "./actions";
 
 export function ReportRow({
@@ -10,6 +11,7 @@ export function ReportRow({
   report: { id: string; reason: string; createdAt: string | Date; planId: string; planSlug: string; planTitle: string; creatorName: string | null };
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -25,8 +27,13 @@ export function ReportRow({
     });
   }
 
-  function deletePlan() {
-    if (!window.confirm(`「${report.planTitle}」を削除します。よろしいですか？`)) return;
+  async function deletePlan() {
+    const ok = await confirm({
+      message: `「${report.planTitle}」を削除します。よろしいですか？`,
+      confirmLabel: "削除する",
+      danger: true,
+    });
+    if (!ok) return;
     setErrorMessage(null);
     startTransition(async () => {
       const result = await deleteReportedPlan(report.id, report.planId);

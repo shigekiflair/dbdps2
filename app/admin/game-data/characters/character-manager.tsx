@@ -25,7 +25,7 @@ function CharacterFormFields({
 }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <Field label="slug（URLに使う識別子。半角英数とハイフンのみ。例: the-houndmaster）">
+      <Field label="管理用の名前（半角の英字・数字・ハイフンだけを使った、他と被らない名前。例: the-houndmaster）">
         <input
           value={draft.slug}
           onChange={(e) => setDraft({ ...draft, slug: e.target.value })}

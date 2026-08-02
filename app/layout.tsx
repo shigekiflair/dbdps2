@@ -4,6 +4,7 @@ import "@/styles/design-tokens.css";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { AnonMigration } from "@/components/anon-migration";
+import { ConfirmProvider } from "@/components/confirm-dialog";
 
 const cinzel = Cinzel({ subsets: ["latin"], variable: "--font-cinzel", weight: ["500", "600"] });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -19,8 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja" data-theme="dark">
       <body className={`${cinzel.variable} ${inter.variable} ${plexMono.variable}`}>
         <Providers>
-          <AnonMigration />
-          {children}
+          <ConfirmProvider>
+            <AnonMigration />
+            {children}
+          </ConfirmProvider>
         </Providers>
       </body>
     </html>
