@@ -18,7 +18,7 @@ export default async function PlansPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-1 flex items-center justify-between">
         <span className="text-sm font-medium tracking-wide text-bone">TRIAL FORGE</span>
         <nav className="flex items-center gap-4 text-xs text-bone-muted">
           <a href="/plans/new">企画を作る</a>
@@ -29,7 +29,6 @@ export default async function PlansPage() {
           >
             マイページ
           </a>
-          <a href="/tools">ツール</a>
           <AdminMenu
             isAdmin={!!session?.user?.isAdmin}
             isCollaborator={!!session?.user?.isCollaborator}
@@ -38,6 +37,16 @@ export default async function PlansPage() {
           <UserNav />
         </nav>
       </header>
+      <p className="mb-5 text-[11px] text-bone-muted">Dead by Daylight 配信企画ポータル</p>
+
+      <div className="mb-5 rounded-card border border-[#2C2C2A] bg-ash px-5 py-4 text-xs leading-relaxed text-bone-muted">
+        配信者が作った投票・ティア表・チャレンジなどの企画で遊べる場所です。下の一覧から気になる企画を選ぶだけで、
+        <span className="text-bone">ログイン不要ですぐに参加</span>できます。ログインすると、投票の記録やポイントが端末をまたいで残るほか、
+        <a href="/plans/new" className="text-amber underline">
+          自分で企画を作る
+        </a>
+        こともできます。
+      </div>
 
       <p className="mb-4 text-[11px] text-bone-muted">
         自分で作った企画（お気に入り・ティア表・投票企画など）は、この一覧ではなく

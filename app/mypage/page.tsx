@@ -27,7 +27,6 @@ export default async function MyPage() {
           <a href="/plans">企画一覧</a>
           <a href="/ranking">ランキング</a>
           <span className="rounded-full border border-amber px-3 py-1 font-medium text-amber">マイページ</span>
-          <a href="/tools">ツール</a>
           <AdminMenu
             isAdmin={!!session?.user?.isAdmin}
             isCollaborator={!!session?.user?.isCollaborator}
