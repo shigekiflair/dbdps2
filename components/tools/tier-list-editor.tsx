@@ -36,6 +36,13 @@ export function TierListEditor({
   const [selectedKiller, setSelectedKiller] = useState<string | null>(null);
   const [killerQuery, setKillerQuery] = useState("");
   const [dragOverTier, setDragOverTier] = useState<string | null>(null);
+  // タッチ端末ではHTML5のドラッグ&ドロップが正しく機能せず、スクロールと衝突してしまうため、
+  // タッチ操作を検出したらdraggable属性自体を外してタップ操作だけに専念させる
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice(window.matchMedia("(hover: none), (pointer: coarse)").matches);
+  }, []);
 
   // マウント時点のデフォルト状態(S/A/B/C/D)を親に伝える。何も操作せず保存しても
   // 空のtiersにならないようにするため
@@ -118,30 +125,36 @@ export function TierListEditor({
     <div>
       <div className="mb-4 rounded-lg border border-[#2C2C2A] bg-ash2 p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
-          <div className="flex items-start gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blood text-[10px] font-bold text-[#FCEBEB]">
-              PC
-            </span>
-            <p className="text-[11px] text-bone-muted">
-              下のキラーを<span className="text-bone">つかんだまま</span>、上のランクの上まで動かして離す
-            </p>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fog-teal-dark text-[10px] font-bold text-[#9FE1CB]">
-              1
-            </span>
-            <p className="text-[11px] text-bone-muted">
-              スマホの場合：まず<span className="text-bone">キラーをタップ</span>
-            </p>
-          </div>
-          <div className="flex items-start gap-2">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fog-teal-dark text-[10px] font-bold text-[#9FE1CB]">
-              2
-            </span>
-            <p className="text-[11px] text-bone-muted">
-              次に<span className="text-bone">入れたいランクをタップ</span>すれば移動します
-            </p>
-          </div>
+          {!isTouchDevice && (
+            <div className="flex items-start gap-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blood text-[10px] font-bold text-[#FCEBEB]">
+                PC
+              </span>
+              <p className="text-[11px] text-bone-muted">
+                下のキラーを<span className="text-bone">つかんだまま</span>、上のランクの上まで動かして離す
+              </p>
+            </div>
+          )}
+          {isTouchDevice && (
+            <>
+              <div className="flex items-start gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fog-teal-dark text-[10px] font-bold text-[#9FE1CB]">
+                  1
+                </span>
+                <p className="text-[11px] text-bone-muted">
+                  まず<span className="text-bone">キラーをタップ</span>
+                </p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fog-teal-dark text-[10px] font-bold text-[#9FE1CB]">
+                  2
+                </span>
+                <p className="text-[11px] text-bone-muted">
+                  次に<span className="text-bone">入れたいランクをタップ</span>すれば移動します
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -194,7 +207,7 @@ export function TierListEditor({
                   return (
                     <span
                       key={killerId}
-                      draggable
+                      draggable={!isTouchDevice}
                       onDragStart={(e) => {
                         e.stopPropagation();
                         handleDragStart(e, killerId);
@@ -203,6 +216,7 @@ export function TierListEditor({
                         e.stopPropagation();
                         handleChipTap(killerId);
                       }}
+                      style={{ touchAction: "manipulation" }}
                       className={`flex cursor-grab items-center gap-1.5 rounded-md border py-1 pl-1 pr-2 text-xs text-bone active:cursor-grabbing ${
                         selectedKiller === killerId ? "border-bone bg-ash2" : "border-[#2C2C2A] bg-ash2"
                       }`}
@@ -281,7 +295,7 @@ export function TierListEditor({
             .map((k) => (
               <span
                 key={k.id}
-                draggable
+                draggable={!isTouchDevice}
                 onDragStart={(e) => {
                   e.stopPropagation();
                   handleDragStart(e, k.id);
@@ -290,6 +304,7 @@ export function TierListEditor({
                   e.stopPropagation();
                   handleChipTap(k.id);
                 }}
+                style={{ touchAction: "manipulation" }}
                 className={`flex cursor-grab items-center gap-1.5 rounded-md border py-1 pl-1 pr-2 text-xs active:cursor-grabbing ${
                   selectedKiller === k.id ? "border-bone text-bone" : "border-[#2C2C2A] text-bone-muted"
                 }`}
