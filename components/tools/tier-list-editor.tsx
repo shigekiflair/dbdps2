@@ -116,9 +116,34 @@ export function TierListEditor({
 
   return (
     <div>
-      <p className="mb-3 text-[11px] text-bone-muted">
-        キラーをドラッグ&ドロップでランクに振り分けてください（スマホの場合はキラーをタップ→ランクをタップで割り当てできます）
-      </p>
+      <div className="mb-4 rounded-lg border border-[#2C2C2A] bg-ash2 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
+          <div className="flex items-start gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blood text-[10px] font-bold text-[#FCEBEB]">
+              PC
+            </span>
+            <p className="text-[11px] text-bone-muted">
+              下のキラーを<span className="text-bone">つかんだまま</span>、上のランクの上まで動かして離す
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fog-teal-dark text-[10px] font-bold text-[#9FE1CB]">
+              1
+            </span>
+            <p className="text-[11px] text-bone-muted">
+              スマホの場合：まず<span className="text-bone">キラーをタップ</span>
+            </p>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-fog-teal-dark text-[10px] font-bold text-[#9FE1CB]">
+              2
+            </span>
+            <p className="text-[11px] text-bone-muted">
+              次に<span className="text-bone">入れたいランクをタップ</span>すれば移動します
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-2">
         {tiers.map((tier, index) => (

@@ -66,6 +66,7 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
   const [characterQuery, setCharacterQuery] = useState("");
 
   const [myPick, setMyPick] = useState<string | null>(null);
+  const [justVoted, setJustVoted] = useState(false);
   const [resolvePick, setResolvePick] = useState<string | null>(null);
 
   function refresh() {
@@ -89,6 +90,10 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
   useEffect(() => {
     setMyPick(state?.myVote?.[0] ?? null);
   }, [state?.round?.id, state?.myVote]);
+
+  useEffect(() => {
+    setJustVoted(false);
+  }, [state?.round?.id]);
 
   function updateOptionDraft(id: string, label: string) {
     setOptionDrafts((prev) => prev.map((o) => (o.id === id ? { ...o, label } : o)));
@@ -142,6 +147,7 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
         setErrorMessage(result.error);
         return;
       }
+      setJustVoted(true);
       refresh();
     });
   }
@@ -244,7 +250,10 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
                 {round.options.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setMyPick(opt.id)}
+                    onClick={() => {
+                      if (opt.id !== myPick) setJustVoted(false);
+                      setMyPick(opt.id);
+                    }}
                     className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
                       myPick === opt.id ? "border-blood bg-blood-dark text-[#F5C4B3]" : "border-[#2C2C2A] text-bone hover:border-[#444441]"
                     }`}
@@ -253,13 +262,18 @@ export function BettingTool({ plan, characters = [] }: { plan: { slug: string };
                   </button>
                 ))}
               </div>
-              <button
-                disabled={isPending || !myPick}
-                onClick={submitVote}
-                className="mt-1 rounded-lg bg-blood px-4 py-2 text-xs font-medium text-[#FCEBEB] disabled:opacity-50"
-              >
-                {state.myVote ? "投票を変更する" : "投票する"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={isPending || !myPick}
+                  onClick={submitVote}
+                  className="mt-1 rounded-lg bg-blood px-4 py-2 text-xs font-medium text-[#FCEBEB] disabled:opacity-50"
+                >
+                  {state.myVote ? "投票を変更する" : "投票する"}
+                </button>
+                {justVoted && (
+                  <span className="mt-1 flex items-center gap-1 text-xs text-[#9FE1CB]">✓ 投票しました</span>
+                )}
+              </div>
               {!isLoggedIn && (
                 <p className="text-[10px] text-bone-muted">
                   ログインなしでも投票できますが、的中ポイントは
