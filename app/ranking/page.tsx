@@ -1,9 +1,7 @@
 import { getGlobalLeaderboard } from "@/lib/betting";
 import { getCurrentIdentityId } from "@/lib/identity";
-import { getOpenReports } from "@/lib/reports";
 import { auth } from "@/auth";
-import { UserNav } from "@/components/user-nav";
-import { AdminMenu } from "@/components/admin-menu";
+import { SiteHeader } from "@/components/site-header";
 
 export default async function RankingPage() {
   const [leaderboard, myUserId, session] = await Promise.all([
@@ -11,25 +9,10 @@ export default async function RankingPage() {
     getCurrentIdentityId(),
     auth(),
   ]);
-  const openReports = session?.user?.isAdmin ? await getOpenReports() : [];
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
-      <header className="mb-6 flex items-center justify-between">
-        <a href="/plans" className="text-sm font-medium tracking-wide text-bone">
-          TRIAL FORGE
-        </a>
-        <nav className="flex items-center gap-4 text-xs text-bone-muted">
-          <a href="/plans">企画一覧</a>
-          <a href="/mypage">マイページ</a>
-          <AdminMenu
-            isAdmin={!!session?.user?.isAdmin}
-            isCollaborator={!!session?.user?.isCollaborator}
-            openReportsCount={openReports.length}
-          />
-          <UserNav />
-        </nav>
-      </header>
+      <SiteHeader active="ranking" />
 
       <h1 className="mb-1 text-lg font-medium text-bone">ポイントランキング</h1>
       <p className="mb-3 text-xs text-bone-muted">

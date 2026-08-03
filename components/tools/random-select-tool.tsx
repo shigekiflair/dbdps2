@@ -1311,15 +1311,17 @@ export function RandomSelectTool({
               <div className="border-b border-[#2C2C2A] pb-3 sm:w-32 sm:flex-shrink-0 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-3">
                 <button
                   onClick={() => row.character && toggleLockChar(index)}
-                  className={`w-full rounded-lg border p-3 text-center ${
+                  className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left sm:block sm:p-3 sm:text-center ${
                     row.lockedChar ? "border-blood" : "border-[#2C2C2A]"
                   } bg-ash2 ${rowPending && !row.lockedChar ? "tf-card-spinning" : "tf-card-settle"}`}
                 >
-                  <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                  <p className="text-[11px] text-bone">
-                    {rowPending && !row.lockedChar ? "…" : row.character?.name ?? "?"}
-                  </p>
-                  {row.lockedChar && <p className="mt-1 text-[10px] text-blood">固定中</p>}
+                  <div className="h-8 w-8 shrink-0 rounded bg-ash sm:mx-auto sm:mb-2" />
+                  <div className="min-w-0 flex-1 sm:flex-none">
+                    <p className="truncate text-[11px] text-bone">
+                      {rowPending && !row.lockedChar ? "…" : row.character?.name ?? "?"}
+                    </p>
+                    {row.lockedChar && <p className="mt-0.5 text-[10px] text-blood sm:mt-1">固定中</p>}
+                  </div>
                 </button>
                 <select
                   value=""
@@ -1391,15 +1393,17 @@ export function RandomSelectTool({
                   ) : (
                     <button
                       onClick={() => row.item && toggleLockItem(index)}
-                      className={`w-full rounded-lg border p-3 text-center ${
+                      className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left sm:block sm:p-3 sm:text-center ${
                         row.lockedItem ? "border-blood" : "border-[#2C2C2A]"
                       } bg-ash2 ${rowPending && !row.lockedItem ? "tf-card-spinning" : "tf-card-settle"}`}
                     >
-                      <div className="mx-auto mb-2 h-8 w-8 rounded bg-ash" />
-                      <p className="text-[11px] text-bone">
-                        {rowPending && !row.lockedItem ? "…" : row.item?.name ?? "?"}
-                      </p>
-                      {row.lockedItem && <p className="mt-1 text-[10px] text-blood">固定中</p>}
+                      <div className="h-8 w-8 shrink-0 rounded bg-ash sm:mx-auto sm:mb-2" />
+                      <div className="min-w-0 flex-1 sm:flex-none">
+                        <p className="truncate text-[11px] text-bone">
+                          {rowPending && !row.lockedItem ? "…" : row.item?.name ?? "?"}
+                        </p>
+                        {row.lockedItem && <p className="mt-0.5 text-[10px] text-blood sm:mt-1">固定中</p>}
+                      </div>
                     </button>
                   )}
                   {!row.blackedOut && (

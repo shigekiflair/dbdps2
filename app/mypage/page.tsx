@@ -1,40 +1,22 @@
 import { getFavoritePlans } from "@/lib/favorites";
 import { getUserPlans } from "@/lib/plans";
 import { getCurrentIdentityId } from "@/lib/identity";
-import { getOpenReports } from "@/lib/reports";
 import { auth } from "@/auth";
 import { PlanCard } from "@/components/plan-card";
 import { MyPlanCard } from "@/components/my-plan-card";
-import { UserNav } from "@/components/user-nav";
-import { AdminMenu } from "@/components/admin-menu";
+import { SiteHeader } from "@/components/site-header";
 
 export default async function MyPage() {
   const identityId = await getCurrentIdentityId();
   const session = await auth();
-  const [favoritePlans, myPlans, openReports] = await Promise.all([
+  const [favoritePlans, myPlans] = await Promise.all([
     identityId ? getFavoritePlans(identityId) : Promise.resolve([]),
     session?.user?.id ? getUserPlans(session.user.id) : Promise.resolve([]),
-    session?.user?.isAdmin ? getOpenReports() : Promise.resolve([]),
   ]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
-      <header className="mb-6 flex items-center justify-between">
-        <a href="/plans" className="text-sm font-medium tracking-wide text-bone">
-          TRIAL FORGE
-        </a>
-        <nav className="flex items-center gap-4 text-xs text-bone-muted">
-          <a href="/plans">企画一覧</a>
-          <a href="/ranking">ランキング</a>
-          <span className="rounded-full border border-amber px-3 py-1 font-medium text-amber">マイページ</span>
-          <AdminMenu
-            isAdmin={!!session?.user?.isAdmin}
-            isCollaborator={!!session?.user?.isCollaborator}
-            openReportsCount={openReports.length}
-          />
-          <UserNav />
-        </nav>
-      </header>
+      <SiteHeader active="mypage" />
 
       <h1 className="mb-1 text-lg font-medium text-bone">マイページ</h1>
       <p className="mb-3 text-xs text-bone-muted">

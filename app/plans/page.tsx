@@ -1,42 +1,16 @@
 import { getPublishedPlans } from "@/lib/plans";
 import { getFavoriteSlugs } from "@/lib/favorites";
 import { getCurrentIdentityId } from "@/lib/identity";
-import { getOpenReports } from "@/lib/reports";
-import { auth } from "@/auth";
 import { PlanFilterBar } from "@/components/plan-filter-bar";
-import { UserNav } from "@/components/user-nav";
-import { AdminMenu } from "@/components/admin-menu";
+import { SiteHeader } from "@/components/site-header";
 
 export default async function PlansPage() {
   const identityId = await getCurrentIdentityId();
-  const session = await auth();
-  const [plans, favoriteSlugs, openReports] = await Promise.all([
-    getPublishedPlans(),
-    getFavoriteSlugs(identityId),
-    session?.user?.isAdmin ? getOpenReports() : Promise.resolve([]),
-  ]);
+  const [plans, favoriteSlugs] = await Promise.all([getPublishedPlans(), getFavoriteSlugs(identityId)]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
-      <header className="mb-1 flex items-center justify-between">
-        <span className="text-sm font-medium tracking-wide text-bone">TRIAL FORGE</span>
-        <nav className="flex items-center gap-4 text-xs text-bone-muted">
-          <a href="/plans/new">企画を作る</a>
-          <a href="/ranking">ランキング</a>
-          <a
-            href="/mypage"
-            className="rounded-full border border-amber px-3 py-1 font-medium text-amber"
-          >
-            マイページ
-          </a>
-          <AdminMenu
-            isAdmin={!!session?.user?.isAdmin}
-            isCollaborator={!!session?.user?.isCollaborator}
-            openReportsCount={openReports.length}
-          />
-          <UserNav />
-        </nav>
-      </header>
+      <SiteHeader active="plans" />
       <p className="mb-5 text-[11px] text-bone-muted">Dead by Daylight 配信企画ポータル</p>
 
       <div className="mb-5 rounded-card border border-[#2C2C2A] bg-ash px-5 py-4 text-xs leading-relaxed text-bone-muted">

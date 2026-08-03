@@ -19,6 +19,7 @@ import { BettingTool } from "@/components/tools/betting-tool";
 import { TierListView } from "@/components/tools/tier-list-tool";
 import { SharePageButton } from "@/components/share-page-button";
 import { ReportPlanButton } from "@/components/report-plan-button";
+import { SiteHeader } from "@/components/site-header";
 
 export default async function PlanDetailPage({
   params,
@@ -38,6 +39,7 @@ export default async function PlanDetailPage({
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
+      <SiteHeader />
       <a href="/plans" className="mb-4 inline-flex items-center gap-1 text-xs text-bone-muted">
         ← 企画一覧へ
       </a>
