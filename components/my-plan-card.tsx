@@ -54,7 +54,9 @@ export function MyPlanCard({
         >
           見る
         </a>
-        {plan.type === "tier_list" && (
+        {["tier_list", "trigger_internal", "chain", "roleplay", "escalation", "data_accumulation", "betting"].includes(
+          plan.type
+        ) && (
           <a
             href={`/plans/${plan.slug}/edit`}
             className="flex-1 rounded-md border border-[#2C2C2A] py-1.5 text-center text-bone hover:bg-ash2"

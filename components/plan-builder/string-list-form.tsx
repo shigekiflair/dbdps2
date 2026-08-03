@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createStringListPlan } from "@/app/plans/new/actions";
+import { createStringListPlan, updateStringListPlan } from "@/app/plans/new/actions";
 
 type StringListType = "trigger_internal" | "chain" | "roleplay" | "escalation" | "data_accumulation" | "betting";
+type Visibility = "private" | "unlisted" | "public";
 
 const TYPE_LABEL: Record<StringListType, string> = {
   trigger_internal: "イベントトリガー型",
@@ -24,13 +25,31 @@ const ITEM_LABEL: Record<StringListType, string> = {
   betting: "",
 };
 
-export function StringListPlanForm({ type }: { type: StringListType }) {
+export function StringListPlanForm({
+  type,
+  mode = "create",
+  slug,
+  initialTitle = "",
+  initialDescription = "",
+  initialVisibility = "unlisted",
+  initialItems = [],
+  initialThreshold = 3,
+}: {
+  type: StringListType;
+  mode?: "create" | "edit";
+  slug?: string;
+  initialTitle?: string;
+  initialDescription?: string;
+  initialVisibility?: Visibility;
+  initialItems?: string[];
+  initialThreshold?: number;
+}) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [visibility, setVisibility] = useState<"private" | "unlisted" | "public">("unlisted");
-  const [itemsText, setItemsText] = useState("");
-  const [threshold, setThreshold] = useState(3);
+  const [title, setTitle] = useState(initialTitle);
+  const [description, setDescription] = useState(initialDescription);
+  const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
+  const [itemsText, setItemsText] = useState(initialItems.join("\n"));
+  const [threshold, setThreshold] = useState(initialThreshold);
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -38,22 +57,33 @@ export function StringListPlanForm({ type }: { type: StringListType }) {
     setErrorMessage(null);
     startTransition(async () => {
       try {
-        const result = await createStringListPlan({
-          type,
-          title,
-          description,
-          visibility,
-          items: itemsText.split("\n"),
-          threshold: type === "escalation" ? threshold : undefined,
-        });
+        const result =
+          mode === "edit" && slug
+            ? await updateStringListPlan({
+                slug,
+                type,
+                title,
+                description,
+                visibility,
+                items: itemsText.split("\n"),
+                threshold: type === "escalation" ? threshold : undefined,
+              })
+            : await createStringListPlan({
+                type,
+                title,
+                description,
+                visibility,
+                items: itemsText.split("\n"),
+                threshold: type === "escalation" ? threshold : undefined,
+              });
         if (result.error || !result.slug) {
-          setErrorMessage(result.error ?? "作成に失敗しました。");
+          setErrorMessage(result.error ?? "保存に失敗しました。");
           return;
         }
-        router.push(`/plans/${result.slug}?created=1`);
+        router.push(mode === "edit" ? `/plans/${result.slug}?updated=1` : `/plans/${result.slug}?created=1`);
       } catch (err) {
         console.error(err);
-        setErrorMessage("作成に失敗しました。時間をおいてもう一度お試しください。");
+        setErrorMessage("保存に失敗しました。時間をおいてもう一度お試しください。");
       }
     });
   }
@@ -100,6 +130,11 @@ export function StringListPlanForm({ type }: { type: StringListType }) {
             placeholder={"1行に1件ずつ入力してください"}
             className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-sm text-bone placeholder:text-bone-muted"
           />
+          {mode === "edit" && (
+            <span className="mt-1 block text-[11px] text-bone-muted">
+              新しい行を追加すれば項目を増やせます。既存の行を消せば項目を減らせます。
+            </span>
+          )}
         </label>
       )}
 
@@ -120,7 +155,7 @@ export function StringListPlanForm({ type }: { type: StringListType }) {
         <span className="mb-1 block text-xs text-bone-muted">公開範囲</span>
         <select
           value={visibility}
-          onChange={(e) => setVisibility(e.target.value as typeof visibility)}
+          onChange={(e) => setVisibility(e.target.value as Visibility)}
           className="w-full rounded-md border border-[#2C2C2A] bg-ash2 px-3 py-2 text-sm text-bone"
         >
           <option value="private">自分だけ</option>
@@ -133,7 +168,7 @@ export function StringListPlanForm({ type }: { type: StringListType }) {
         onClick={submit}
         className="rounded-lg bg-blood px-5 py-2.5 text-xs font-medium text-[#FCEBEB] disabled:opacity-60"
       >
-        作成する
+        {mode === "edit" ? "更新する" : "作成する"}
       </button>
     </div>
   );

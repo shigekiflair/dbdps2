@@ -100,8 +100,7 @@ export async function updateTierListPlan(input: {
   visibility: Visibility;
   tiers: TierConfig[];
   assignments: Record<string, string>;
-}): Promise<{ error?: string; slug?: string }> {
-  const userId = await getUserId();
+}): Promise<{ error?: string; slug?: string }> {  const userId = await getUserId();
   if (typeof userId !== "string") return userId;
 
   const plan = await getPlanBySlug(input.slug);
@@ -116,6 +115,50 @@ export async function updateTierListPlan(input: {
       description: input.description.trim(),
       visibility: input.visibility,
       poolConfig: { tiers: input.tiers, assignments: input.assignments },
+    });
+    return { slug: input.slug };
+  } catch (err) {
+    console.error(err);
+    return { error: err instanceof Error ? err.message : "更新に失敗しました。" };
+  }
+}
+
+export async function updateStringListPlan(input: {
+  slug: string;
+  type: StringListType;
+  title: string;
+  description: string;
+  visibility: Visibility;
+  items: string[];
+  threshold?: number;
+}): Promise<{ error?: string; slug?: string }> {
+  const userId = await getUserId();
+  if (typeof userId !== "string") return userId;
+
+  const plan = await getPlanBySlug(input.slug);
+  if (!plan) return { error: "企画が見つかりません" };
+
+  const title = input.title.trim();
+  if (!title) return { error: "タイトルを入力してください" };
+
+  const cleanItems = input.items.map((i) => i.trim()).filter(Boolean);
+  if (input.type !== "betting" && cleanItems.length === 0) {
+    return { error: "項目を1つ以上入力してください" };
+  }
+
+  const poolConfig =
+    input.type === "betting"
+      ? {}
+      : input.type === "escalation"
+        ? { customPool: cleanItems, threshold: input.threshold ?? 3 }
+        : { customPool: cleanItems };
+
+  try {
+    await updateUserPlan(plan.id, userId, {
+      title,
+      description: input.description.trim(),
+      visibility: input.visibility,
+      poolConfig,
     });
     return { slug: input.slug };
   } catch (err) {

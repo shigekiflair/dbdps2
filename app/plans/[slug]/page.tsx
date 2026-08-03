@@ -120,7 +120,9 @@ export default async function PlanDetailPage({
             マイページ
           </a>
           の「自分の企画」から一覧できます）。
-          {plan.type === "tier_list" && (
+          {["tier_list", "trigger_internal", "chain", "roleplay", "escalation", "data_accumulation", "betting"].includes(
+            plan.type
+          ) && (
             <a href={`/plans/${plan.slug}/edit`} className="ml-2 underline">
               編集する
             </a>
