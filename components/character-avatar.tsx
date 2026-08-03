@@ -18,6 +18,16 @@ function hashToHue(name: string): number {
   return hash % 360;
 }
 
+/**
+ * DBに保存されたパスが "characters/xxx.png" のように先頭の"/"を欠いていると、
+ * 今開いているページのパス基準で相対解決されてしまい(例: /plans/new/characters/xxx.png)、
+ * 常に404になってしまう。サイトルート基準で解決されるよう防御的に正規化する。
+ */
+function normalizeIconUrl(iconUrl: string): string {
+  if (/^(https?:)?\/\//.test(iconUrl) || iconUrl.startsWith("/")) return iconUrl;
+  return `/${iconUrl}`;
+}
+
 export function CharacterAvatar({
   name,
   iconUrl,
@@ -33,7 +43,7 @@ export function CharacterAvatar({
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={iconUrl}
+        src={normalizeIconUrl(iconUrl)}
         alt={name}
         width={size}
         height={size}
