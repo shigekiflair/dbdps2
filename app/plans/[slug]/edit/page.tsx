@@ -7,6 +7,7 @@ import { getPlanBySlug } from "@/lib/plans";
 import { TierListPlanForm } from "@/components/plan-builder/tier-list-form";
 import { StringListPlanForm } from "@/components/plan-builder/string-list-form";
 import { TargetPickPlanForm } from "@/components/plan-builder/target-pick-form";
+import { BasicInfoForm } from "@/components/plan-builder/basic-info-form";
 
 const STRING_LIST_TYPES = ["trigger_internal", "chain", "roleplay", "escalation", "data_accumulation", "betting"] as const;
 type StringListType = (typeof STRING_LIST_TYPES)[number];
@@ -94,10 +95,33 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
     );
   }
 
+  if (plan.type === "lottery") {
+    const pool = plan.poolConfig as { source?: string } | null;
+
+    // タグ絞り込み式のパーク抽選(例:コミュニケーション縛り)は、より本格的な専用エディタを別途用意する予定。
+    // それ以外(例:ランダムセレクトのsource:"character_build")は、poolConfigに実質編集項目が無いため
+    // タイトル・説明文だけの汎用フォームで対応する。
+    if (pool?.source !== "perk") {
+      return (
+        <main className="mx-auto max-w-2xl px-6 py-8">
+          <a href={`/plans/${slug}`} className="mb-4 inline-flex items-center gap-1 text-xs text-bone-muted">
+            ← 企画ページに戻る
+          </a>
+          <h1 className="mb-6 text-lg font-medium text-bone">企画を編集</h1>
+          <BasicInfoForm slug={slug} initialTitle={plan.title} initialDescription={plan.description ?? ""} />
+        </main>
+      );
+    }
+  }
+
+  const lotteryPool = plan.type === "lottery" ? (plan.poolConfig as { source?: string } | null) : null;
+
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
       <p className="text-xs text-bone-muted">
-        この企画タイプの編集フォームはまだありません。マイページから削除して作り直してください。
+        {lotteryPool?.source === "perk"
+          ? "タグ絞り込み式のパーク抽選（コミュニケーション縛り等）の編集画面は近日対応予定です。もうしばらくお待ちください。"
+          : "この企画タイプの編集フォームはまだありません。マイページから削除して作り直してください。"}
       </p>
     </main>
   );
