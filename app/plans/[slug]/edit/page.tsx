@@ -6,6 +6,7 @@ import { characters } from "@/db/schema";
 import { getPlanBySlug } from "@/lib/plans";
 import { TierListPlanForm } from "@/components/plan-builder/tier-list-form";
 import { StringListPlanForm } from "@/components/plan-builder/string-list-form";
+import { TargetPickPlanForm } from "@/components/plan-builder/target-pick-form";
 
 const STRING_LIST_TYPES = ["trigger_internal", "chain", "roleplay", "escalation", "data_accumulation", "betting"] as const;
 type StringListType = (typeof STRING_LIST_TYPES)[number];
@@ -21,7 +22,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
 
   const plan = await getPlanBySlug(slug);
   if (!plan) notFound();
-  if (plan.createdBy !== session.user.id) notFound();
+  if (plan.createdBy !== session.user.id && !session.user.isAdmin) notFound();
 
   if (plan.type === "tier_list") {
     const killers = await db
@@ -69,6 +70,25 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
           initialVisibility={plan.visibility}
           initialItems={pool?.customPool ?? []}
           initialThreshold={pool?.threshold ?? 3}
+        />
+      </main>
+    );
+  }
+
+  if (plan.type === "target_pick") {
+    const pool = plan.poolConfig as { customPool?: string[] } | null;
+
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-8">
+        <a href={`/plans/${slug}`} className="mb-4 inline-flex items-center gap-1 text-xs text-bone-muted">
+          ← 企画ページに戻る
+        </a>
+        <h1 className="mb-6 text-lg font-medium text-bone">ターゲット指定型企画を編集</h1>
+        <TargetPickPlanForm
+          slug={slug}
+          initialTitle={plan.title}
+          initialDescription={plan.description ?? ""}
+          initialItems={pool?.customPool ?? []}
         />
       </main>
     );

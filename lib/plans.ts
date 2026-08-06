@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { plans } from "@/db/schema";
 import { eq, asc, desc, and, isNull, isNotNull } from "drizzle-orm";
 import { generateUniqueSlug } from "@/lib/slug";
-import { canViewPlan } from "@/lib/permissions";
+import { canViewPlan, canHostPlan } from "@/lib/permissions";
 
 export async function getPublishedPlans() {
   // 運営キュレーション企画のみ（createdByがnull）。ユーザー作成企画はここには出さず、
@@ -77,13 +77,13 @@ export async function createUserPlan(input: CreatePlanInput) {
 
 export async function updateUserPlan(
   planId: string,
-  userId: string,
+  actingUser: { id: string; isAdmin: boolean },
   input: Partial<Pick<CreatePlanInput, "title" | "description" | "visibility" | "poolConfig">>
 ) {
   const rows = await db.select().from(plans).where(eq(plans.id, planId));
   const existing = rows[0];
-  if (!existing || existing.createdBy !== userId) {
-    throw new Error("この企画を編集できるのは、作成した本人だけです");
+  if (!existing || !canHostPlan({ userId: actingUser.id, isAdmin: actingUser.isAdmin }, existing.createdBy)) {
+    throw new Error("この企画を編集する権限がありません");
   }
   await db
     .update(plans)
@@ -101,11 +101,11 @@ export async function updateUserPlan(
  * ソフトデリート。物理削除はせず、deletedAtを立てて一覧・詳細から除外するだけにする。
  * 誤操作時にrestorePlanで復元できるようにするため。
  */
-export async function deleteUserPlan(planId: string, userId: string) {
+export async function deleteUserPlan(planId: string, actingUser: { id: string; isAdmin: boolean }) {
   const rows = await db.select().from(plans).where(eq(plans.id, planId));
   const existing = rows[0];
-  if (!existing || existing.createdBy !== userId) {
-    throw new Error("この企画を削除できるのは、作成した本人だけです");
+  if (!existing || !canHostPlan({ userId: actingUser.id, isAdmin: actingUser.isAdmin }, existing.createdBy)) {
+    throw new Error("この企画を削除する権限がありません");
   }
   await db.update(plans).set({ deletedAt: new Date() }).where(eq(plans.id, planId));
 }

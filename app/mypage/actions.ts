@@ -8,7 +8,7 @@ export async function deleteMyPlan(planId: string): Promise<{ error?: string }> 
   if (!session?.user?.id) return { error: "ログインが必要です" };
 
   try {
-    await deleteUserPlan(planId, session.user.id);
+    await deleteUserPlan(planId, { id: session.user.id, isAdmin: !!session.user.isAdmin });
     return {};
   } catch (err) {
     console.error(err);

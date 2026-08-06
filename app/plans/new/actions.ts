@@ -12,10 +12,10 @@ type TierConfig = { id: string; label: string; color: string };
  * (Next.jsの仕様。開発環境では気づけない)、バリデーションエラーは例外ではなく戻り値で返す。
  * 呼び出し側は必ず`if (result.error)`を先にチェックすること。
  */
-async function getUserId(): Promise<string | { error: string }> {
+async function getActingUser(): Promise<{ id: string; isAdmin: boolean } | { error: string }> {
   const session = await auth();
   if (!session?.user?.id) return { error: "この操作にはログインが必要です" };
-  return session.user.id;
+  return { id: session.user.id, isAdmin: !!session.user.isAdmin };
 }
 
 /** トリガー・チェイン・ロールプレイ・エスカレーション・データ蓄積・ベッティングの各企画を作成する */
@@ -27,8 +27,8 @@ export async function createStringListPlan(input: {
   items: string[];
   threshold?: number;
 }): Promise<{ error?: string; slug?: string }> {
-  const userId = await getUserId();
-  if (typeof userId !== "string") return userId;
+  const actingUser = await getActingUser();
+  if ("error" in actingUser) return actingUser;
 
   const title = input.title.trim();
   if (!title) return { error: "タイトルを入力してください" };
@@ -53,7 +53,7 @@ export async function createStringListPlan(input: {
       target: "viewer",
       visibility: input.visibility,
       poolConfig,
-      createdBy: userId,
+      createdBy: actingUser.id,
     });
     return { slug: plan.slug };
   } catch (err) {
@@ -69,8 +69,8 @@ export async function createTierListPlan(input: {
   tiers: TierConfig[];
   assignments: Record<string, string>;
 }): Promise<{ error?: string; slug?: string }> {
-  const userId = await getUserId();
-  if (typeof userId !== "string") return userId;
+  const actingUser = await getActingUser();
+  if ("error" in actingUser) return actingUser;
 
   const title = input.title.trim();
   if (!title) return { error: "タイトルを入力してください" };
@@ -84,7 +84,7 @@ export async function createTierListPlan(input: {
       target: "viewer",
       visibility: input.visibility,
       poolConfig: { tiers: input.tiers, assignments: input.assignments },
-      createdBy: userId,
+      createdBy: actingUser.id,
     });
     return { slug: plan.slug };
   } catch (err) {
@@ -93,6 +93,7 @@ export async function createTierListPlan(input: {
   }
 }
 
+/** 編集はcreatedByが本人の場合に加えて、管理者ならどの企画（運営キュレーション企画も含む）でも行える */
 export async function updateTierListPlan(input: {
   slug: string;
   title: string;
@@ -100,8 +101,9 @@ export async function updateTierListPlan(input: {
   visibility: Visibility;
   tiers: TierConfig[];
   assignments: Record<string, string>;
-}): Promise<{ error?: string; slug?: string }> {  const userId = await getUserId();
-  if (typeof userId !== "string") return userId;
+}): Promise<{ error?: string; slug?: string }> {
+  const actingUser = await getActingUser();
+  if ("error" in actingUser) return actingUser;
 
   const plan = await getPlanBySlug(input.slug);
   if (!plan) return { error: "企画が見つかりません" };
@@ -110,7 +112,7 @@ export async function updateTierListPlan(input: {
   if (!title) return { error: "タイトルを入力してください" };
 
   try {
-    await updateUserPlan(plan.id, userId, {
+    await updateUserPlan(plan.id, actingUser, {
       title,
       description: input.description.trim(),
       visibility: input.visibility,
@@ -132,8 +134,8 @@ export async function updateStringListPlan(input: {
   items: string[];
   threshold?: number;
 }): Promise<{ error?: string; slug?: string }> {
-  const userId = await getUserId();
-  if (typeof userId !== "string") return userId;
+  const actingUser = await getActingUser();
+  if ("error" in actingUser) return actingUser;
 
   const plan = await getPlanBySlug(input.slug);
   if (!plan) return { error: "企画が見つかりません" };
@@ -154,7 +156,7 @@ export async function updateStringListPlan(input: {
         : { customPool: cleanItems };
 
   try {
-    await updateUserPlan(plan.id, userId, {
+    await updateUserPlan(plan.id, actingUser, {
       title,
       description: input.description.trim(),
       visibility: input.visibility,

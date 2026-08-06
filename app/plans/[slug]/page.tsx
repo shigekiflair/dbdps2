@@ -20,6 +20,7 @@ import { TierListView } from "@/components/tools/tier-list-tool";
 import { SharePageButton } from "@/components/share-page-button";
 import { ReportPlanButton } from "@/components/report-plan-button";
 import { SiteHeader } from "@/components/site-header";
+import { auth } from "@/auth";
 
 export default async function PlanDetailPage({
   params,
@@ -33,6 +34,9 @@ export default async function PlanDetailPage({
   const viewerId = await getCurrentIdentityId();
   const plan = await getViewablePlanBySlug(slug, viewerId);
   if (!plan) notFound();
+
+  const session = await auth();
+  const isAdmin = !!session?.user?.isAdmin;
 
   const badge = planTypeBadge(plan.type);
   const pool = plan.poolConfig as any;
@@ -113,25 +117,46 @@ export default async function PlanDetailPage({
       {plan.type === "tier_list" && <TierListView poolConfig={plan.poolConfig as any} />}
       {/* draft型はPhase5で追加 */}
 
-      {plan.createdBy && plan.createdBy === viewerId && (
-        <div className="mt-6 border-t border-[#2C2C2A] pt-4 text-[11px] text-bone-muted">
-          この企画はあなたが作成しました（
-          <a href="/mypage" className="underline">
-            マイページ
-          </a>
-          の「自分の企画」から一覧できます）。
-          {["tier_list", "trigger_internal", "chain", "roleplay", "escalation", "data_accumulation", "betting"].includes(
-            plan.type
-          ) && (
-            <a href={`/plans/${plan.slug}/edit`} className="ml-2 underline">
-              編集する
-            </a>
-          )}
-          <span className="ml-2">
-            公開範囲：{plan.visibility === "private" ? "自分だけ" : plan.visibility === "unlisted" ? "リンクを知っている人だけ" : "公開"}
-          </span>
-        </div>
-      )}
+      {(() => {
+        const isOwner = plan.createdBy && plan.createdBy === viewerId;
+        const isEditableType = [
+          "tier_list",
+          "trigger_internal",
+          "chain",
+          "roleplay",
+          "escalation",
+          "data_accumulation",
+          "betting",
+          "target_pick",
+        ].includes(plan.type);
+        if (!isOwner && !isAdmin) return null;
+
+        return (
+          <div className="mt-6 border-t border-[#2C2C2A] pt-4 text-[11px] text-bone-muted">
+            {isOwner ? (
+              <>
+                この企画はあなたが作成しました（
+                <a href="/mypage" className="underline">
+                  マイページ
+                </a>
+                の「自分の企画」から一覧できます）。
+              </>
+            ) : (
+              <>この企画は運営が用意したものです。管理者アカウントで編集できます。</>
+            )}
+            {isEditableType && (
+              <a href={`/plans/${plan.slug}/edit`} className="ml-2 underline">
+                編集する
+              </a>
+            )}
+            {isOwner && (
+              <span className="ml-2">
+                公開範囲：{plan.visibility === "private" ? "自分だけ" : plan.visibility === "unlisted" ? "リンクを知っている人だけ" : "公開"}
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       {plan.createdBy && plan.createdBy !== viewerId && (
         <div className="mt-6 border-t border-[#2C2C2A] pt-4">
