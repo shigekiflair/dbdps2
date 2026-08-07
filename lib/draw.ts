@@ -94,9 +94,20 @@ export async function drawFromPool(pool: PoolConfig, opts: DrawOptions = {}) {
     candidateIds = rows.map((r) => r.perkId);
   }
 
+  let excludedIds: string[] | null = null;
+  if (pool.excludeTags?.length) {
+    const rows = await db
+      .select({ perkId: taggables.taggableId })
+      .from(taggables)
+      .innerJoin(tags, eq(tags.id, taggables.tagId))
+      .where(and(eq(taggables.taggableType, "perk"), inArray(tags.slug, pool.excludeTags)));
+    excludedIds = rows.map((r) => r.perkId);
+  }
+
   const whereClauses = [eq(perks.isActive, true)];
   if (opts.role) whereClauses.push(eq(perks.role, opts.role));
   if (candidateIds) whereClauses.push(inArray(perks.id, candidateIds));
+  if (excludedIds?.length) whereClauses.push(notInArray(perks.id, excludedIds));
   if (opts.excludeIds?.length) whereClauses.push(notInArray(perks.id, opts.excludeIds));
 
   const rows = await db.select().from(perks).where(and(...whereClauses));

@@ -8,6 +8,8 @@ import { TierListPlanForm } from "@/components/plan-builder/tier-list-form";
 import { StringListPlanForm } from "@/components/plan-builder/string-list-form";
 import { TargetPickPlanForm } from "@/components/plan-builder/target-pick-form";
 import { BasicInfoForm } from "@/components/plan-builder/basic-info-form";
+import { LotteryPerkPoolForm } from "@/components/plan-builder/lottery-perk-form";
+import { getAllTags } from "@/lib/tags";
 
 const STRING_LIST_TYPES = ["trigger_internal", "chain", "roleplay", "escalation", "data_accumulation", "betting"] as const;
 type StringListType = (typeof STRING_LIST_TYPES)[number];
@@ -112,16 +114,37 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
         </main>
       );
     }
-  }
 
-  const lotteryPool = plan.type === "lottery" ? (plan.poolConfig as { source?: string } | null) : null;
+    const perkPool = plan.poolConfig as {
+      filterTags?: string[];
+      excludeTags?: string[];
+      count?: number;
+    } | null;
+    const tags = await getAllTags();
+
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-8">
+        <a href={`/plans/${slug}`} className="mb-4 inline-flex items-center gap-1 text-xs text-bone-muted">
+          ← 企画ページに戻る
+        </a>
+        <h1 className="mb-6 text-lg font-medium text-bone">タグ絞り込み式パーク抽選を編集</h1>
+        <LotteryPerkPoolForm
+          slug={slug}
+          tags={tags}
+          initialTitle={plan.title}
+          initialDescription={plan.description ?? ""}
+          initialFilterTags={perkPool?.filterTags ?? []}
+          initialExcludeTags={perkPool?.excludeTags ?? []}
+          initialCount={perkPool?.count ?? 4}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
       <p className="text-xs text-bone-muted">
-        {lotteryPool?.source === "perk"
-          ? "タグ絞り込み式のパーク抽選（コミュニケーション縛り等）の編集画面は近日対応予定です。もうしばらくお待ちください。"
-          : "この企画タイプの編集フォームはまだありません。マイページから削除して作り直してください。"}
+        この企画タイプの編集フォームはまだありません。マイページから削除して作り直してください。
       </p>
     </main>
   );

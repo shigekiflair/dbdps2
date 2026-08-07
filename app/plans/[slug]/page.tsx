@@ -119,8 +119,6 @@ export default async function PlanDetailPage({
 
       {(() => {
         const isOwner = plan.createdBy && plan.createdBy === viewerId;
-        const lotteryPoolSource =
-          plan.type === "lottery" ? ((plan.poolConfig as { source?: string } | null)?.source ?? null) : null;
         const isEditableType =
           [
             "tier_list",
@@ -131,7 +129,7 @@ export default async function PlanDetailPage({
             "data_accumulation",
             "betting",
             "target_pick",
-          ].includes(plan.type) || (plan.type === "lottery" && lotteryPoolSource !== "perk");
+          ].includes(plan.type) || plan.type === "lottery";
         if (!isOwner && !isAdmin) return null;
 
         return (
