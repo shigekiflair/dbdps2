@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { tags, plans } from "./schema";
+import { tags, plans, taggables } from "./schema";
 import { eq } from "drizzle-orm";
 
 /**
@@ -369,6 +369,106 @@ async function main() {
   });
 
   console.log("plans: 献身ポイント・ロシアンルーレット 投入完了");
+
+  // --- 企画ジャンルタグ（企画一覧の絞り込み・カード表示用。パーク属性タグとは別カテゴリ） ---
+  const insertedGenreTags = await db
+    .insert(tags)
+    .values([
+      { slug: "versus", label: "対人系", color: "#C4342F", category: "plan_genre" },
+      { slug: "mind-game", label: "心理戦系", color: "#7F77DD", category: "plan_genre" },
+      { slug: "collection", label: "収集系", color: "#378ADD", category: "plan_genre" },
+      { slug: "endurance-run", label: "継続系", color: "#1D9E75", category: "plan_genre" },
+      { slug: "viewer-made", label: "視聴者共創系", color: "#BA7517", category: "plan_genre" },
+    ])
+    .onConflictDoNothing()
+    .returning();
+  console.log(`ジャンルタグ: ${insertedGenreTags.length}件 投入`);
+
+  // タグslug → idの引き当て用（新規投入分だけでなく、既存分も含めて全件取得し直す）
+  const allTagRows = await db.select().from(tags);
+  const tagIdBySlug = new Map(allTagRows.map((t) => [t.slug, t.id]));
+
+  async function attachGenreTags(planSlug: string, genreSlugs: string[]) {
+    const planRows = await db.select({ id: plans.id }).from(plans).where(eq(plans.slug, planSlug));
+    const planId = planRows[0]?.id;
+    if (!planId) return;
+    const values = genreSlugs
+      .map((s) => tagIdBySlug.get(s))
+      .filter((id): id is string => !!id)
+      .map((tagId) => ({ tagId, taggableType: "plan", taggableId: planId }));
+    if (values.length === 0) return;
+    await db.insert(taggables).values(values).onConflictDoNothing();
+  }
+
+  // --- 新規企画A: 逆エスカレーション型（勝てば勝つほど次の試合の縛りが増える） -------
+  // 既存の「献身ポイント・ロシアンルーレット」は"失敗/ペナルティ行動"で縛りが溜まる方向だが、
+  // こちらは逆に"成功(キル/救助/発電機修理等)"を重ねるほど自分の首を締める方向の企画
+  const killStreakRules = [
+    "次の1試合、フックからの救助後にしゃがみ移動禁止",
+    "次の1試合、発電機修理は必ず1人で行う（同時修理禁止）",
+    "次の1試合、板を1枚も使わずにチェイスする",
+    "次の1試合、アイテムの持ち込み禁止",
+    "次の1試合、索敵系パーク(オーラ/索敵タグ)は使用禁止",
+    "次の1試合、通話なしの無言プレイ",
+    "次の1試合、被害者(サバイバー)は救助後、必ずお礼のエモートをしてから離脱する",
+    "次の1試合、キラーは同じサバイバーを2回連続で追わない",
+  ];
+  await db.insert(plans).values({
+    slug: "kill-streak-escalation",
+    title: "連勝ペナルティ・エスカレーション",
+    description:
+      "キル/救助/発電機修理など「成功」を1つ重ねるごとにポイントが貯まり、一定数溜まるごとにランダムなハンデが発動する逆方向のエスカレーション企画。上手くいくほど自分の首を締めていく",
+    type: "escalation",
+    target: "both",
+    poolConfig: { customPool: killStreakRules, threshold: 3 },
+    inputFields: [],
+    outputDisplay: { layout: "escalation_list", shareable: false, ogpTemplate: "default" },
+    stateModel: "cross_stream_persistent",
+    progressConfig: { goal: "pool_exhausted", resetCondition: "manual" },
+    isPublished: true,
+    sortOrder: 11,
+  }).onConflictDoUpdate({
+    target: plans.slug,
+    set: {
+      title: "連勝ペナルティ・エスカレーション",
+      description:
+        "キル/救助/発電機修理など「成功」を1つ重ねるごとにポイントが貯まり、一定数溜まるごとにランダムなハンデが発動する逆方向のエスカレーション企画。上手くいくほど自分の首を締めていく",
+      poolConfig: { customPool: killStreakRules, threshold: 3 },
+      sortOrder: 11,
+    },
+  });
+  await attachGenreTags("kill-streak-escalation", ["versus", "mind-game", "endurance-run"]);
+  console.log("plans: 連勝ペナルティ・エスカレーション 投入完了");
+
+  // --- 新規企画B: 抽選型（オーラ・索敵パーク縛り。既存のaura/infoタグをそのまま流用） -----
+  await db.insert(plans).values({
+    slug: "aura-info-lock",
+    title: "オーラ・索敵パーク縛り",
+    description: "タグが「オーラ」または「索敵/情報」のパークだけでスロットを回す縛り企画",
+    type: "lottery",
+    target: "both",
+    poolConfig: {
+      source: "perk",
+      filterTags: ["aura", "info"],
+      excludeTags: [],
+      count: 4,
+      weighting: "equal",
+    },
+    inputFields: [],
+    outputDisplay: { layout: "card_grid", shareable: true, ogpTemplate: "default" },
+    stateModel: "stateless",
+    isPublished: true,
+    sortOrder: 12,
+  }).onConflictDoUpdate({
+    target: plans.slug,
+    set: {
+      description: "タグが「オーラ」または「索敵/情報」のパークだけでスロットを回す縛り企画",
+      poolConfig: { source: "perk", filterTags: ["aura", "info"], excludeTags: [], count: 4, weighting: "equal" },
+      sortOrder: 12,
+    },
+  });
+  await attachGenreTags("aura-info-lock", ["mind-game", "collection"]);
+  console.log("plans: オーラ・索敵パーク縛り 投入完了");
 }
 
 main()

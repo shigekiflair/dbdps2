@@ -73,6 +73,11 @@ export const bettingRoundStatusEnum = pgEnum("betting_round_status", [
 // 単勝(1つ的中)・2連単(1位2位を順番通り)・3連単(1位2位3位を順番通り)。競馬と同じく完全一致のみ的中扱い
 export const bettingModeEnum = pgEnum("betting_mode", ["win", "exacta", "trifecta"]);
 
+// tagsテーブルは元々パークの属性分類(コミュニケーション/治療等)専用に作られていたが、
+// 企画のジャンル分類(対人系/心理戦系/収集系等)にも同じ仕組み(tags + taggables)を流用する。
+// 用途を混同してUI(パーク絞り込みタグ選択・企画ジャンルタグ選択)に混ざって出ないよう区別する。
+export const tagCategoryEnum = pgEnum("tag_category", ["perk_attribute", "plan_genre"]);
+
 export const pointTransactionReasonEnum = pgEnum("point_transaction_reason", [
   "betting_win",
   "betting_exacta",
@@ -167,6 +172,9 @@ export const tags = pgTable("tags", {
   slug: text("slug").notNull(),
   label: text("label").notNull(),
   color: text("color"), // UI上のチップカラー(hex)
+  // "perk_attribute": パークの属性タグ(コミュニケーション/治療等、抽選の絞り込みに使う)
+  // "plan_genre": 企画のジャンルタグ(対人系/心理戦系等、企画一覧の絞り込み・カード表示に使う)
+  category: tagCategoryEnum("category").default("perk_attribute").notNull(),
 }, (t) => ({
   slugUnique: uniqueIndex("tags_slug_unique").on(t.slug),
 }));

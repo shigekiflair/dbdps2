@@ -1,12 +1,19 @@
 import { getPublishedPlans } from "@/lib/plans";
 import { getFavoriteSlugs } from "@/lib/favorites";
 import { getCurrentIdentityId } from "@/lib/identity";
+import { getAllTags, getGenreTagsForPlans } from "@/lib/tags";
 import { PlanFilterBar } from "@/components/plan-filter-bar";
 import { SiteHeader } from "@/components/site-header";
 
 export default async function PlansPage() {
   const identityId = await getCurrentIdentityId();
-  const [plans, favoriteSlugs] = await Promise.all([getPublishedPlans(), getFavoriteSlugs(identityId)]);
+  const [plans, favoriteSlugs, genreTags] = await Promise.all([
+    getPublishedPlans(),
+    getFavoriteSlugs(identityId),
+    getAllTags("plan_genre"),
+  ]);
+  const genreTagsByPlan = await getGenreTagsForPlans(plans.map((p) => p.id));
+  const plansWithTags = plans.map((p) => ({ ...p, genreTags: genreTagsByPlan.get(p.id) ?? [] }));
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
@@ -43,7 +50,7 @@ export default async function PlansPage() {
         </a>
       </div>
 
-      <PlanFilterBar plans={plans} favoriteSlugs={favoriteSlugs} />
+      <PlanFilterBar plans={plansWithTags} favoriteSlugs={favoriteSlugs} genreTags={genreTags} />
     </main>
   );
 }

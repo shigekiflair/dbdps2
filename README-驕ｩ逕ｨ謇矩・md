@@ -1,0 +1,69 @@
+# フェーズ1: ジャンルタグ機能 + 新規プレイスタイル2本
+
+## 内容
+
+- 企画にジャンルタグ(対人系/心理戦系/収集系/継続系/視聴者共創系)を付けられるようにした
+- 企画一覧でジャンルタグによる絞り込みができるようにした
+- 新しい遊び方を2本追加(既存の企画タイプを流用したので新規UIコードは不要)
+  - 連勝ペナルティ・エスカレーション(成功を重ねるほど縛りが増える逆方向企画)
+  - オーラ・索敵パーク縛り(既存タグを流用したパーク抽選企画)
+
+## 変更ファイル一覧
+
+```
+db/schema.ts                                  ... tagsにcategoryカラム追加
+db/seed.ts                                    ... ジャンルタグ5種 + 新規企画2本の投入データ追加
+lib/tags.ts                                   ... ジャンルタグ用の取得/更新関数を追加
+app/plans/[slug]/edit/page.tsx                ... 編集画面にジャンルタグ欄を追加
+app/plans/[slug]/edit/genre-tag-actions.ts    ... 新規ファイル(ジャンルタグ更新のサーバーアクション)
+components/plan-builder/genre-tag-picker.tsx  ... 新規ファイル(タグ選択UI)
+components/plan-card.tsx                      ... カードにジャンルタグチップを表示
+components/plan-filter-bar.tsx                ... ジャンル絞り込みボタンを追加
+app/plans/page.tsx                            ... 一覧取得時にジャンルタグを付与
+```
+
+## 適用手順
+
+1. 上記ファイルを、これまで通りローカルのプロジェクトディレクトリの対応するパスに上書き・追加してください
+   (`app/plans/[slug]/edit/genre-tag-actions.ts` と `components/plan-builder/genre-tag-picker.tsx` は新規ファイルです)
+
+2. スキーマ変更をDBに反映します
+
+   ```bash
+   npm run db:generate
+   npm run db:migrate
+   ```
+
+3. ジャンルタグと新規企画2本をDBに投入します
+
+   ```bash
+   npm run db:seed
+   ```
+
+   `db/seed.ts` は `onConflictDoUpdate` / `onConflictDoNothing` を使っているので、
+   既存の本番データに対して実行しても壊れません(重複作成にはなりません)。
+
+4. いつも通りの確認・デプロイフローを実行してください
+
+   ```bash
+   npm run test
+   npm run smoke -- https://dbdps2.vercel.app
+   git add .
+   git commit -m "企画ジャンルタグ機能を追加、新規プレイスタイル2本を追加"
+   git push
+   ```
+
+## 動作確認ポイント(手元で見ておいてほしい箇所)
+
+- `/plans` 一覧ページで、ジャンルタグの絞り込みボタンが出てタップで絞り込めるか
+- 任意の企画の編集画面(`/plans/{slug}/edit`)の一番下に「ジャンルタグ」欄が出て、保存できるか
+- 新規企画「連勝ペナルティ・エスカレーション」「オーラ・索敵パーク縛り」が一覧に出て、正常に遊べるか
+- パーク絞り込み用のタグ選択画面(既存のロト系企画の編集画面)に、新しく追加したジャンルタグ
+  (対人系、心理戦系等)が紛れ込んで出てきていないか ← 一番事故りやすいポイントなので要確認
+
+## 注意事項
+
+- 私(Claude)のサンドボックス環境はネットワークアクセスが無効化されており、`npm install` や
+  実際のDB接続・型チェック(`tsc`, `next build`)を実行できていません。ファイルの中身は
+  既存コードのパターンを踏襲する形で慎重にレビューしましたが、上記のいつもの
+  `npm run test` / `npm run smoke` は必ず実行してから本番反映してください。

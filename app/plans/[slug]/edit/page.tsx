@@ -9,7 +9,8 @@ import { StringListPlanForm } from "@/components/plan-builder/string-list-form";
 import { TargetPickPlanForm } from "@/components/plan-builder/target-pick-form";
 import { BasicInfoForm } from "@/components/plan-builder/basic-info-form";
 import { LotteryPerkPoolForm } from "@/components/plan-builder/lottery-perk-form";
-import { getAllTags } from "@/lib/tags";
+import { GenreTagPicker } from "@/components/plan-builder/genre-tag-picker";
+import { getAllTags, getPlanGenreTags } from "@/lib/tags";
 
 const STRING_LIST_TYPES = ["trigger_internal", "chain", "roleplay", "escalation", "data_accumulation", "betting"] as const;
 type StringListType = (typeof STRING_LIST_TYPES)[number];
@@ -26,6 +27,14 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
   const plan = await getPlanBySlug(slug);
   if (!plan) notFound();
   if (plan.createdBy !== session.user.id && !session.user.isAdmin) notFound();
+
+  // ジャンルタグ(対人系/心理戦系等)は企画タイプに関わらず共通の項目なので、ここで一度だけ取得し、
+  // 下の各タイプ別ブロックで使い回す
+  const [genreTags, currentGenreTags] = await Promise.all([getAllTags("plan_genre"), getPlanGenreTags(plan.id)]);
+  const initialGenreTagIds = currentGenreTags.map((t) => t.id);
+  const genreTagSection = (
+    <GenreTagPicker slug={slug} allTags={genreTags} initialTagIds={initialGenreTagIds} />
+  );
 
   if (plan.type === "tier_list") {
     const killers = await db
@@ -51,6 +60,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
           initialTiers={pool?.tiers as any}
           initialAssignments={pool?.assignments}
         />
+        {genreTagSection}
       </main>
     );
   }
@@ -74,6 +84,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
           initialItems={pool?.customPool ?? []}
           initialThreshold={pool?.threshold ?? 3}
         />
+        {genreTagSection}
       </main>
     );
   }
@@ -93,6 +104,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
           initialDescription={plan.description ?? ""}
           initialItems={pool?.customPool ?? []}
         />
+        {genreTagSection}
       </main>
     );
   }
@@ -105,6 +117,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
         </a>
         <h1 className="mb-6 text-lg font-medium text-bone">企画を編集</h1>
         <BasicInfoForm slug={slug} initialTitle={plan.title} initialDescription={plan.description ?? ""} />
+        {genreTagSection}
       </main>
     );
   }
@@ -123,6 +136,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
           </a>
           <h1 className="mb-6 text-lg font-medium text-bone">企画を編集</h1>
           <BasicInfoForm slug={slug} initialTitle={plan.title} initialDescription={plan.description ?? ""} />
+          {genreTagSection}
         </main>
       );
     }
@@ -132,7 +146,9 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
       excludeTags?: string[];
       count?: number;
     } | null;
-    const tags = await getAllTags();
+    // パーク絞り込み用のタグ("perk_attribute")のみを渡す。ジャンルタグ("plan_genre")が混ざって
+    // 選択肢に出てこないよう、上のgenreTagsとは別に明示的にcategoryを指定して取得し直す
+    const tags = await getAllTags("perk_attribute");
 
     return (
       <main className="mx-auto max-w-2xl px-6 py-8">
@@ -149,15 +165,20 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
           initialExcludeTags={perkPool?.excludeTags ?? []}
           initialCount={perkPool?.count ?? 4}
         />
+        {genreTagSection}
       </main>
     );
   }
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
-      <p className="text-xs text-bone-muted">
-        この企画タイプの編集フォームはまだありません。マイページから削除して作り直してください。
+      <a href={`/plans/${slug}`} className="mb-4 inline-flex items-center gap-1 text-xs text-bone-muted">
+        ← 企画ページに戻る
+      </a>
+      <p className="mb-6 text-xs text-bone-muted">
+        この企画タイプの内容編集フォームはまだありませんが、ジャンルタグだけは下から編集できます。
       </p>
+      {genreTagSection}
     </main>
   );
 }
