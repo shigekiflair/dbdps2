@@ -129,6 +129,7 @@ export default async function PlanDetailPage({
             "data_accumulation",
             "betting",
             "target_pick",
+            "tracking",
           ].includes(plan.type) || plan.type === "lottery";
         if (!isOwner && !isAdmin) return null;
 

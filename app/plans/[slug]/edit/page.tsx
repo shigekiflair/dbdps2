@@ -97,6 +97,18 @@ export default async function EditPlanPage({ params }: { params: Promise<{ slug:
     );
   }
 
+  if (plan.type === "tracking") {
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-8">
+        <a href={`/plans/${slug}`} className="mb-4 inline-flex items-center gap-1 text-xs text-bone-muted">
+          ← 企画ページに戻る
+        </a>
+        <h1 className="mb-6 text-lg font-medium text-bone">企画を編集</h1>
+        <BasicInfoForm slug={slug} initialTitle={plan.title} initialDescription={plan.description ?? ""} />
+      </main>
+    );
+  }
+
   if (plan.type === "lottery") {
     const pool = plan.poolConfig as { source?: string } | null;
 
