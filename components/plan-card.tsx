@@ -15,17 +15,27 @@ type PlanCardData = {
 export function PlanCard({
   plan,
   favorited = false,
+  rankBadge,
 }: {
   plan: PlanCardData;
   favorited?: boolean;
+  /** "🔥トレンド中" 等、ランキング由来のバッジ文言（任意） */
+  rankBadge?: string;
 }) {
   const badge = planTypeBadge(plan.type);
   return (
     <div className="rounded-card border border-[#2C2C2A] bg-ash p-4">
       <div className="flex items-start justify-between gap-2">
-        <span className={`inline-block rounded px-2 py-1 text-[10px] ${badge.className}`}>
-          {badge.label}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`inline-block rounded px-2 py-1 text-[10px] ${badge.className}`}>
+            {badge.label}
+          </span>
+          {rankBadge && (
+            <span className="inline-block rounded bg-[#2A1D08] px-2 py-1 text-[10px] font-medium text-amber">
+              {rankBadge}
+            </span>
+          )}
+        </div>
         <FavoriteButton slug={plan.slug} initialFavorited={favorited} />
       </div>
       <p className="mt-2 text-sm font-medium text-bone">{plan.title}</p>

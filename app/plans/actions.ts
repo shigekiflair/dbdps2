@@ -5,6 +5,7 @@ import { getPlanBySlug } from "@/lib/plans";
 import { saveResult } from "@/lib/results";
 import { ensureCurrentIdentityId } from "@/lib/identity";
 import { upsertProgress } from "@/lib/progress";
+import { recordPlanPlay } from "@/lib/plan-plays";
 
 export async function drawPlanResult(
   slug: string,
@@ -12,6 +13,10 @@ export async function drawPlanResult(
 ) {
   const plan = await getPlanBySlug(slug);
   if (!plan) throw new Error("plan not found");
+
+  // ランキング用のプレイ数カウント。Vercelのサーバーレス関数は応答を返すと処理が打ち切られる
+  // ことがあるため、fire-and-forgetにはせずここでawaitする（DB書き込みなので体感遅延はごく僅か）
+  await recordPlanPlay(plan.id);
 
   const pool = { ...(plan.poolConfig as Parameters<typeof drawFromPool>[0]) };
   if (opts.count) pool.count = opts.count;
@@ -46,6 +51,10 @@ export async function drawBuildSlot(
     currentItemId?: string;
   }
 ) {
+  // ランダムセレクトは常に固定スラッグ"random-select"の企画に紐づく(shareBuildResultと同じ扱い)
+  const plan = await getPlanBySlug("random-select");
+  if (plan) await recordPlanPlay(plan.id);
+
   const character = opts.needCharacter
     ? (await drawFromPool({ source: role, count: 1 }, { excludeIds: opts.excludeCharacterIds }))[0] ?? null
     : null;

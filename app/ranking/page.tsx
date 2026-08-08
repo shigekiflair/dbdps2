@@ -14,6 +14,15 @@ export default async function RankingPage() {
     <main className="mx-auto max-w-2xl px-6 py-8">
       <SiteHeader active="ranking" />
 
+      <div className="mb-4 flex gap-2">
+        <span className="rounded-full border border-amber px-3 py-1 text-xs font-medium text-amber">
+          ポイントランキング
+        </span>
+        <a href="/ranking/plans" className="rounded-full border border-[#2C2C2A] px-3 py-1 text-xs text-bone-muted">
+          人気企画ランキング
+        </a>
+      </div>
+
       <h1 className="mb-1 text-lg font-medium text-bone">ポイントランキング</h1>
       <p className="mb-3 text-xs text-bone-muted">
         予想・ベッティング型企画で的中すると獲得できるポイントの、サイト全体での累積ランキングです。

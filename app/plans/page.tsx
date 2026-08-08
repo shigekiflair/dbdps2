@@ -50,6 +50,12 @@ export default async function PlansPage() {
         </a>
       </div>
 
+      <div className="mb-5 text-right">
+        <a href="/ranking/plans" className="text-xs text-amber underline">
+          🏆 人気企画ランキングを見る
+        </a>
+      </div>
+
       <PlanFilterBar plans={plansWithTags} favoriteSlugs={favoriteSlugs} genreTags={genreTags} />
     </main>
   );

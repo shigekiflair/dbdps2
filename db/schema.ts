@@ -7,6 +7,7 @@ import {
   integer,
   jsonb,
   timestamp,
+  date,
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core";
@@ -251,6 +252,21 @@ export const planResults = pgTable("plan_results", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => ({
   shareCodeUnique: uniqueIndex("plan_results_share_code_unique").on(t.shareCode),
+}));
+
+/**
+ * 「実際に引く/実行する」操作(drawPlanResult等)の日次プレイ数カウンタ。
+ * 1プレイ=1行のフルログにすると将来的にテーブルが肥大化し、トレンド計算のたびに
+ * 大量行を集計することになるため、日付単位で件数だけを持つ軽量な集計テーブルにしている。
+ * 個人を特定しないので匿名ユーザーのプレイも問題なく数えられる。
+ */
+export const planPlayDaily = pgTable("plan_play_daily", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  planId: uuid("plan_id").notNull().references(() => plans.id, { onDelete: "cascade" }),
+  playDate: date("play_date", { mode: "string" }).notNull(), // "YYYY-MM-DD"
+  playCount: integer("play_count").default(0).notNull(),
+}, (t) => ({
+  planDateUnique: uniqueIndex("plan_play_daily_plan_date_unique").on(t.planId, t.playDate),
 }));
 
 export const planProgress = pgTable("plan_progress", {
