@@ -20,6 +20,8 @@ components/plan-builder/genre-tag-picker.tsx  ... 新規ファイル(タグ選�
 components/plan-card.tsx                      ... カードにジャンルタグチップを表示
 components/plan-filter-bar.tsx                ... ジャンル絞り込みボタンを追加
 app/plans/page.tsx                            ... 一覧取得時にジャンルタグを付与
+docs/handoff-2026-07-27-features.md           ... 今回の変更内容を追記(2026-08-08セクション)
+docs/企画リスト整理と定義スキーマ.md              ... 引き継ぎサマリーを最新の実態に合わせて更新
 ```
 
 ## 適用手順
@@ -52,6 +54,10 @@ app/plans/page.tsx                            ... 一覧取得時にジャンル
    git commit -m "企画ジャンルタグ機能を追加、新規プレイスタイル2本を追加"
    git push
    ```
+
+   ※ 今回はコード変更に合わせて `docs/` の引き継ぎドキュメント2点も更新済みです。
+   別コミットに分けたい場合は、`git add docs/` → `git commit -m "引き継ぎサマリーを最新の実態に合わせて更新"`
+   を先に済ませてから、残りのコード分をコミットしても構いません。
 
 ## 動作確認ポイント(手元で見ておいてほしい箇所)
 
